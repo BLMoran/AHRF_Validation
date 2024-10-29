@@ -58,7 +58,7 @@ To determine the optimal cut-off of PaO~2~:FiO~2~ ratio in predicting hospital m
 
 Patients were analysed for validation of the PaO~2~:FiO~2~ ratio in prediction of hospital mortality in the following subgroups: receiving invasive ventilation during the index ICU admission, receiving of other respiratory support (eg non-invasive ventilation, extracorporeal membrane oxygenation) during the ICU admission, sex, age categories, admission diagnoses (medical, cardiac surgery, neurosurgery/trauma, sepsis, post-operative), frailty category (fit/well, mild, moderate, severe frailty) and the presence of treatment limitation status on ICU admission. The same methodology as above was employed. Comparison of each subgroup (ie IPPV vs Non-IPPV) was performed using DeLong's method [@delong1988].
 
-As there were >1,000,000 patients in the dataset, a 2-sided p-value of 0.001 was used for statistical significance. Given that there is an increased risk of Type-1 error with multiple testing, the results of the secondary objectives should be viewed as exploratory. Hence, no adjustment for multiplicity was used. Only patients with complete data for all covariates were included in the analysis. Statistical analyses were performed using R Version 4.3.1 (R Core Team, R Foundation for Statistical Computing, Vienna, Austria) and RStudio Version 2023.12.1 (Posit Software, PBC, Boston, MA). Packages used for analysis included tidytable [@fairbanks], tidyverse [@wickham], data.table [@barrett], gtsummary [@sjoberg2021], gt [@iannone2022], cutpointr [@thiele] and pROC [@robin].
+As there were >800,000 patients in the dataset, a 2-sided p-value of 0.001 was used for statistical significance. Given that there is an increased risk of Type-1 error with multiple testing, the results of the secondary objectives should be viewed as exploratory. Hence, no adjustment for multiplicity was used. Only patients with complete data for all covariates were included in the analysis. Statistical analyses were performed using R Version 4.3.1 (R Core Team, R Foundation for Statistical Computing, Vienna, Austria) and RStudio Version 2023.12.1 (Posit Software, PBC, Boston, MA). Packages used for analysis included tidytable [@fairbanks], tidyverse [@wickham], data.table [@barrett], gtsummary [@sjoberg2021], gt [@iannone2022], cutpointr [@thiele] and pROC [@robin].
 
 ```{r setup, include=FALSE, warning=FALSE, cache.lazy=FALSE}
 library(tidytable)
@@ -75,10 +75,8 @@ options(mc.cores = parallel::detectCores())
 
 # Import and Filter Dataset
 ahrf_validation <- fread("~/Documents/Research/Projects/Current Projects/ANZICS APD/APD ARF Study/Data/APD_NDI_NHI_all.csv",
-             select = c("DSITEID", "HospitalClassification", "PublicPrivate", "Country", "PatientID", "IcuAdmitYYYY", "ICU_AD_DTM", "SEX", "AGE", "ICU_SRCE", "AP3DIAG", "Apache3Score", "Apache2Score",  "ANZRODRiskOfDeath", "FRAILTY", "PAO2_ANZ", "FIO2_ANZ", "DIED_HOSP", "DIED_ICU", "ICU_HRS", "HOSP_HRS", "HOSP_OUTCM", "INV_IND", "INV_DAYONE", "ECMO_IND", "NIV_IND", "CHR_RESP", "CHR_CVS", "COVID_pneumonitis_derived", "TRACHE_IND", "CHR_LIV", "CHR_REN", "INV_HOURS", "HOSP_AD_DTM", "HOSP_DS_DTM", "TREAT_LMT", "EMG_RSP_ADM", "PRE_ICU_HRS", "PANDEMIC", "sofa_score_derived", "NDI_NHI_DeathDate")) |> 
+             select = c("DSITEID", "HospitalClassification", "PublicPrivate", "Country", "PatientID", "IcuAdmitYYYY", "ICU_AD_DTM", "SEX", "AGE", "ICU_SRCE", "AP3DIAG", "Apache3Score", "Apache2Score",  "ANZRODRiskOfDeath", "FRAILTY", "PAO2_ANZ", "FIO2_ANZ", "DIED_HOSP", "DIED_ICU", "ICU_HRS", "HOSP_HRS", "HOSP_OUTCM", "INV_IND", "INV_DAYONE", "INV_HOURS", "NIV_HOURS", "ECMO_IND", "NIV_IND", "ARF", "TRACHE_IND", "INOTROP_IND", "RENAL_IND", "CHR_RESP", "CHR_CVS", "COVID_pneumonitis_derived", "CHR_LIV", "CHR_REN", "HOSP_AD_DTM", "HOSP_DS_DTM", "TREAT_LMT", "EMG_RSP_ADM", "PRE_ICU_HRS", "PANDEMIC", "sofa_score_derived", "NDI_NHI_DeathDate")) |> 
   filter(IcuAdmitYYYY >= 2017, IcuAdmitYYYY < 2023)
-
-
 
 #==========================================DEMOGRAPHICS==========================================#
 
@@ -308,7 +306,7 @@ t1 <- ahrf_validation |>
 
 ## Results
 
-Of 853,598 patients admitted to 211 ICUs during the study period, 440,791 (51.6%) patients had acute hypoaxemic respiratory failure. Of this cohort, 234,003 (27.4%) had mild AHRF, 169,067 (19.8%) had moderate AHRF and 37,721 (4.4%) had severe AHRF.
+Of 819,330 patients admitted to 211 ICUs during the study period, 423,472 (51.7%) patients had acute hypoaxemic respiratory failure. Of this cohort, 224,543 (27.4%) had mild AHRF, 162,588 (19.8%) had moderate AHRF and 36,341 (4.4%) had severe AHRF.
 
 ### Patient Demographics
 
@@ -317,6 +315,51 @@ Below are the demographic tables. This table has the 4 AHRF categories (none, mi
 ```{r, warning=FALSE, message=FALSE}
 t1
 ```
+
+### ICU Supports
+
+```{r, message=FALSE, warning=FALSE}
+# Generate Table with ICU interventions (IPPV, NIV, ECMO, RRT)
+icu_support <- ahrf_validation |> 
+  #convert NA into 0
+  mutate(INV_DAYONE = replace_na(INV_DAYONE, 0),
+          INV_IND = replace_na(INV_IND, 0),
+          NIV_IND = replace_na(NIV_IND, 0),
+          ECMO_IND = replace_na(ECMO_IND, 0),
+          INOTROP_IND = replace_na(INOTROP_IND, 0),
+          TRACHE_IND = replace_na(TRACHE_IND, 0),
+          ARF = replace_na(ARF, 0),
+          RENAL_IND = replace_na(RENAL_IND, 0)) |> 
+  select(INV_DAYONE , INV_IND, INV_HOURS, NIV_IND, NIV_HOURS, ECMO_IND, INOTROP_IND, TRACHE_IND, ARF, RENAL_IND, pf_cat) |> 
+  tbl_summary(by = pf_cat, missing = "no",
+              label = list(
+                INV_DAYONE = "IPPV on Day 1",
+                INV_IND = "IPPV",
+                INV_HOURS = "Hours of IPPV",
+                NIV_IND = "NIV",
+                NIV_HOURS = "Hours of NIV",
+                ECMO_IND = "ECMO",
+                INOTROP_IND = "Inotropes/Vasopressors",
+                TRACHE_IND = "Tracheostomy",
+                ARF = "Acute Kidney Injury",
+                RENAL_IND = "Renal Replacement Therapy"),
+              value = list(
+                INV_DAYONE ~ 1,
+                INV_IND ~ 1,
+                NIV_IND ~ 1,
+                ECMO_IND ~ 1,
+                INOTROP_IND ~ 1,
+                TRACHE_IND ~ 1,
+                ARF ~ 1,
+                RENAL_IND ~ 1)) |> 
+    modify_header(stat_1 = "**None (PF >300)**", stat_2 = "**Mild (PF 200-300)**", stat_3 = "**Moderate (PF 100-200)**", stat_4 = "**Severe (PF < 100)**") |> 
+  modify_spanning_header(all_stat_cols() ~ "**Acute Respiratory Failure Category**") |>
+  bold_labels() |> 
+  add_overall(col_label = "**Overall**", last = FALSE)
+
+icu_support
+```
+
 
 ### ICU & Hospital Outcomes
 
