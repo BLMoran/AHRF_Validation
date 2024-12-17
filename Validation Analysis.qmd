@@ -327,21 +327,23 @@ t1
 icu_support <- ahrf_validation |> 
   #convert NA into 0
   mutate(INV_DAYONE = replace_na(INV_DAYONE, 0),
-          INV_IND = replace_na(INV_IND, 0),
-          NIV_IND = replace_na(NIV_IND, 0),
-          ECMO_IND = replace_na(ECMO_IND, 0),
-          INOTROP_IND = replace_na(INOTROP_IND, 0),
-          TRACHE_IND = replace_na(TRACHE_IND, 0),
-          ARF = replace_na(ARF, 0),
-          RENAL_IND = replace_na(RENAL_IND, 0)) |> 
+         INV_IND = replace_na(INV_IND, 0),
+         NIV_IND = replace_na(NIV_IND, 0),
+         ECMO_IND = replace_na(ECMO_IND, 0),
+         INOTROP_IND = replace_na(INOTROP_IND, 0),
+         TRACHE_IND = replace_na(TRACHE_IND, 0),
+         ARF = replace_na(ARF, 0),
+         RENAL_IND = replace_na(RENAL_IND, 0),
+         INV_HOURS = na_if(INV_HOURS, 0),
+         NIV_HOURS = na_if(NIV_HOURS, 0)) |> 
   select(INV_DAYONE , INV_IND, INV_HOURS, NIV_IND, NIV_HOURS, ECMO_IND, INOTROP_IND, TRACHE_IND, ARF, RENAL_IND, pf_cat) |> 
   tbl_summary(by = pf_cat, missing = "no",
               label = list(
                 INV_DAYONE = "IPPV on Day 1",
                 INV_IND = "IPPV",
-                INV_HOURS = "Hours of IPPV",
+                INV_HOURS = "Hours of IPPV (Pts that received IPPV)",
                 NIV_IND = "NIV",
-                NIV_HOURS = "Hours of NIV",
+                NIV_HOURS = "Hours of NIV (Pts that received NIV)",
                 ECMO_IND = "ECMO",
                 INOTROP_IND = "Inotropes/Vasopressors",
                 TRACHE_IND = "Tracheostomy",
