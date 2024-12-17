@@ -75,10 +75,14 @@ options(mc.cores = parallel::detectCores())
 
 # Import and Filter Dataset
 ahrf_validation <- fread("~/Documents/Research/Projects/Current Projects/ANZICS APD/APD ARF Study/Data/APD_NDI_NHI_all.csv",
-             select = c("DSITEID", "HospitalClassification", "PublicPrivate", "Country", "PatientID", "IcuAdmitYYYY", "ICU_AD_DTM", "SEX", "AGE", "ICU_SRCE", "AP3DIAG", "Apache3Score", "Apache2Score",  "ANZRODRiskOfDeath", "FRAILTY", "PAO2_ANZ", "FIO2_ANZ", "DIED_HOSP", "DIED_ICU", "ICU_HRS", "HOSP_HRS", "HOSP_OUTCM", "INV_IND", "INV_DAYONE", "INV_HOURS", "NIV_HOURS", "ECMO_IND", "NIV_IND", "ARF", "TRACHE_IND", "INOTROP_IND", "RENAL_IND", "CHR_RESP", "CHR_CVS", "COVID_pneumonitis_derived", "CHR_LIV", "CHR_REN", "HOSP_AD_DTM", "HOSP_DS_DTM", "TREAT_LMT", "EMG_RSP_ADM", "PRE_ICU_HRS", "PANDEMIC", "sofa_score_derived", "NDI_NHI_DeathDate")) |> 
+             select = c("DSITEID", "HospitalClassification", "PublicPrivate", "Country", "PatientID", "IcuAdmitYYYY", "ICU_AD_DTM", "READMITTED", "SEX", "AGE", "ICU_SRCE", "AP3DIAG", "Apache3Score", "Apache2Score",  "ANZRODRiskOfDeath", "FRAILTY", "PAO2_ANZ", "FIO2_ANZ", "DIED_HOSP", "DIED_ICU", "ICU_HRS", "HOSP_HRS", "HOSP_OUTCM", "INV_IND", "INV_DAYONE", "INV_HOURS", "NIV_HOURS", "ECMO_IND", "NIV_IND", "ARF", "TRACHE_IND", "INOTROP_IND", "RENAL_IND", "CHR_RESP", "CHR_CVS", "COVID_pneumonitis_derived", "CHR_LIV", "CHR_REN", "HOSP_AD_DTM", "HOSP_DS_DTM", "TREAT_LMT", "EMG_RSP_ADM", "PRE_ICU_HRS", "PANDEMIC", "sofa_score_derived", "NDI_NHI_DeathDate")) |> 
   filter(IcuAdmitYYYY >= 2017, IcuAdmitYYYY < 2023)
 
 #==========================================DEMOGRAPHICS==========================================#
+
+# Remove Readmissions
+ahrf_validation <- ahrf_validation |> 
+  filter(READMITTED == 0)
 
 # Rename & Reorder Gender
 ahrf_validation <- ahrf_validation |> 
@@ -306,7 +310,7 @@ t1 <- ahrf_validation |>
 
 ## Results
 
-Of 819,330 patients admitted to 211 ICUs during the study period, 423,472 (51.7%) patients had acute hypoaxemic respiratory failure. Of this cohort, 224,543 (27.4%) had mild AHRF, 162,588 (19.8%) had moderate AHRF and 36,341 (4.4%) had severe AHRF.
+Of 785,049 patients admitted to 211 ICUs during the study period, 402,431 (51.2%) patients had acute hypoaxemic respiratory failure. Of this cohort, 214,902 (27.4%) had mild AHRF, 153,651 (19.6%) had moderate AHRF and 33,878 (4.3%) had severe AHRF.
 
 ### Patient Demographics
 
@@ -655,7 +659,6 @@ multiroc_d1_ippv <-
   annotate("text", x = 0.7, y = 0.25, label = bquote(AUC[`Not Intubated`]==.(round(rocs_d1_ippv$`Not Intubated`$auc,3))))+
   annotate("text", x = 0.7, y = 0.15, label = "Delong Test: p < 0.001")
 
-
 #==========================================IPPV ANY TIME==========================================#
 roc_ippv <- ahrf_validation |> 
   filter(INV_IND == 1) |> 
@@ -965,8 +968,6 @@ multiroc_ippv_resp_notrtlmt <-
   annotate("text", x = 0.7, y = 0.35, label = bquote(AUC[Yes]==.(round(rocs_ippv_resp_notrtlmt$`Yes`$auc,3))))+
   annotate("text", x = 0.7, y = 0.25, label = bquote(AUC[`No`]==.(round(rocs_ippv_resp_notrtlmt$`No`$auc,3))))+
   annotate("text", x = 0.7, y = 0.15, label = "Delong Test: p < 0.001")
-
-
 
 #==========================================TABLE OF COMPARISONS OF AUCs==========================================#
 
