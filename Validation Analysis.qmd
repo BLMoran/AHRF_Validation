@@ -1,0 +1,1306 @@
+---
+title: "Validation Study of the Use of PF Ratio for Patients with Acute Hypoxaemic Respiratory Failure Admitted to Australian and New Zealand Intensive Care Units" 
+subtitle: "Statistical Analysis"
+author: "Dr Benjamin Moran, MBBS, BMedSci (Hons), MMedStats, FCICM, FANZCA"
+date: today
+format:   
+  html:
+    embed-resources: true
+    grid: 
+      body-width: 4000px
+      sidebar-width: 150px
+execute:
+  cache: true
+  echo: false
+toc: true
+toc-location: left
+toc-depth: 5
+number-sections: true
+bibliography: references.bib
+csl: american-medical-association-10th-edition.csl
+theme: yeti
+---
+
+## Introduction
+ 
+This is an explanation of the statistical analysis for the study validating the use of PaO~2~:FiO~2~ ratio in patients admitted to ICU with acute hypoxaemic respiratory failure.
+
+## Methods
+
+This is a retrospective study using data from the Australian and New Zealand Intensive Care Society (ANZICS) adult ICU patient database (APD). This manuscript has been prepared and reported in accordance with the Strengthening the Reporting of Observational Studies in Epidemiology (STROBE) Statement.
+
+### Patient Population
+
+We included all patients in the ANZICS APD from 01/01/2018 to 31/12/2022.
+
+### Aims and Objectives
+
+1.  Determine the association between PaO~2~:FiO~2~ ratio and hospital mortality.
+2.  Determine the association between PaO~2~:FiO~2~ ratio and ICU mortality.
+3.  Determine the association between PaO~2~:FiO~2~ ratio and mortality at other timepoints (28 day, 6 months, 12 months).
+4.  Validate the PaO~2~:FiO~2~ ratio as a diagnostic tool for prediction of hospital mortality, and mortality at other times (ICU, 28-day, 6 months, 12 months).
+5.  Determine the validity of the PaO~2~:FiO~2~ ratio in predicting hospital mortality in pre-specified subgroups (invasive ventilation, ventilatory support, age, sex, admission diagnoses, frailty categories, presence of treatment limitations).
+
+### Statistical Analysis
+
+We summarized baseline ICU and patient-level characteristics and unadjusted outcomes using standard descriptive statistics. For categorical data, we used counts and percentages, and for continuous data we used mean ± standard deviation (SD) or median (interquartile range, IQR) as appropriate depending on the distribution of data.
+
+#### Association Between PaO~2~:FiO~2~ Ratio and Hospital Mortality
+
+The unadjusted association between PaO~2~:FiO~2~ ratio and hospital mortality was evaluated visually as a continuous, non-linear variable using restricted cubic splines with 4 knots. Specific unadjusted hospital mortality values for standard PaO~2~:FiO~2~ ratio values were also calculated through interrogation of the spline curve.
+
+#### Validation of PaO~2~:FiO~2~ ratio in Predicting Hospital Mortality
+
+To determine the validitiy of the PaO~2~:FiO~2~ ratio, the area under the receiver operator characteristic curve (AUCROC) was calculated. 95% confidence intervals around the AUC were calculated using 1,000 bootstrap samples.
+
+To determine the optimal cut-off of PaO~2~:FiO~2~ ratio in predicting hospital mortality, receiver operator characteristic curves (ROC) were generated. A cut-off level representing the highest sum of sensitivity and specificity hased on each patients PaO~2~:FiO~2~ ratio was calculated using the Youden method [@youden1950]. In this method, the sensitivity and specificity was calculated over a range of PaO~2~:FiO~2~ ratios. For each value, the Youden's J index was calculated by using the following formula (Youden = Sensitivity + Specificity - 1). The value that corresponds to the highest Youden index was identified as the optimal cut-off, reflecting the highest sum of sensitivity and specifity. We also calculated the sensitivity, specificity, negative predictive value and positive predictive value for this cut-off.
+
+#### Subgroup Analysis
+
+Patients were analysed for validation of the PaO~2~:FiO~2~ ratio in prediction of hospital mortality in the following subgroups: receiving invasive ventilation during the index ICU admission, receiving of other respiratory support (eg non-invasive ventilation, extracorporeal membrane oxygenation) during the ICU admission, sex, age categories, admission diagnoses (medical, cardiac surgery, neurosurgery/trauma, sepsis, post-operative), frailty category (fit/well, mild, moderate, severe frailty) and the presence of treatment limitation status on ICU admission. The same methodology as above was employed. Comparison of each subgroup (ie IPPV vs Non-IPPV) was performed using DeLong's method [@delong1988].
+
+As there were >800,000 patients in the dataset, a 2-sided p-value of 0.001 was used for statistical significance. Given that there is an increased risk of Type-1 error with multiple testing, the results of the secondary objectives should be viewed as exploratory. Hence, no adjustment for multiplicity was used. Only patients with complete data for all covariates were included in the analysis. Statistical analyses were performed using R Version 4.3.1 (R Core Team, R Foundation for Statistical Computing, Vienna, Austria) and RStudio Version 2023.12.1 (Posit Software, PBC, Boston, MA). Packages used for analysis included tidytable [@fairbanks], tidyverse [@wickham], data.table [@barrett], gtsummary [@sjoberg2021], gt [@iannone2022], cutpointr [@thiele] and pROC [@robin].
+
+```{r setup, include=FALSE, warning=FALSE, cache.lazy=FALSE}
+library(tidytable)
+library(gtsummary)
+library(gt)
+library(cutpointr)
+library(pROC)
+
+knitr::opts_chunk$set(echo = F, message = F, warning = F, error = T, 
+                      out.width = "90%", dev = "png", dpi = 300, cache = T)
+
+# Global Options
+options(mc.cores = parallel::detectCores())
+
+# Import and Filter Dataset
+ahrf_validation <- fread("~/Documents/Research/Projects/Current Projects/ANZICS APD/APD ARF Study/Data/APD_NDI_NHI_all.csv",
+             select = c("DSITEID", "HospitalClassification", "PublicPrivate", "Country", "PatientID", "IcuAdmitYYYY", "ICU_AD_DTM", "READMITTED", "SEX", "AGE", "ICU_SRCE", "AP3DIAG", "Apache3Score", "Apache2Score",  "ANZRODRiskOfDeath", "FRAILTY", "PAO2_ANZ", "FIO2_ANZ", "DIED_HOSP", "DIED_ICU", "ICU_HRS", "HOSP_HRS", "HOSP_OUTCM", "INV_IND", "INV_DAYONE", "INV_HOURS", "NIV_HOURS", "ECMO_IND", "NIV_IND", "ARF", "TRACHE_IND", "INOTROP_IND", "RENAL_IND", "CHR_RESP", "CHR_CVS", "COVID_pneumonitis_derived", "CHR_LIV", "CHR_REN", "HOSP_AD_DTM", "HOSP_DS_DTM", "TREAT_LMT", "EMG_RSP_ADM", "PRE_ICU_HRS", "PANDEMIC", "sofa_score_derived", "NDI_NHI_DeathDate")) |> 
+  filter(IcuAdmitYYYY >= 2018, IcuAdmitYYYY < 2023)
+
+#==========================================DEMOGRAPHICS==========================================#
+
+# Remove Readmissions
+ahrf_validation <- ahrf_validation |> 
+  filter(READMITTED == 0)
+
+# Rename & Reorder Gender
+ahrf_validation <- ahrf_validation |> 
+  mutate(SEX = case_when(
+    SEX == "F" ~ "Female",
+    SEX == "M" ~ "Male",
+    SEX == "I" ~ "Intersex/Indeterminate",
+    SEX == "NULL" ~ "Unknown")) |> 
+  mutate(SEX = factor(SEX, levels = c("Female", "Male", "Intersex/Indeterminate", "Unknown")))
+
+# Age Category
+ahrf_validation <- ahrf_validation |> mutate(age_cat = case_when(
+  AGE <= 44 ~ "<44",
+  AGE >44 & AGE <=64 ~ "45-64",
+  AGE >64 & AGE < 84 ~ "65-84",
+  AGE > 84 ~ ">84")) 
+
+# Rename ICU Admission Source #
+ahrf_validation <- ahrf_validation |>  mutate(icu_admit_source = case_when(
+            (ICU_SRCE ==1) ~ "Operating Theatre/Recovery",
+            (ICU_SRCE ==2) ~ "Emergency Department",
+            (ICU_SRCE ==3) ~ "Ward",
+            (ICU_SRCE ==4) ~ "ICU, Same Hospital",
+            (ICU_SRCE ==5) ~ "Other Hospital",
+            (ICU_SRCE ==6) ~ "Other Hopsital",
+            (ICU_SRCE ==9) ~ "Direct from Home")) |> 
+  select(-ICU_SRCE)
+
+# Reorder Admission Source
+ahrf_validation <- ahrf_validation |>  mutate(icu_admit_source = factor(icu_admit_source, levels = c("Emergency Department", "Operating Theatre/Recovery", "Ward", "ICU, Same Hospital", "Other Hospital", "Direct from Home")))
+
+# Relabel Admission Diagnoses #
+# Minimal Admission Diagnosis
+ahrf_validation <- ahrf_validation |> 
+  mutate(ap3diag_min = case_when(
+            (AP3DIAG>=1202) & (AP3DIAG<=1213) ~ "Cardiac Surgery",
+            (AP3DIAG>=1301) & (AP3DIAG<=1304) ~ "Post-Operative",
+            (AP3DIAG>=1401) & (AP3DIAG<=1413) ~ "Post-Operative",
+            (AP3DIAG>=1501) & (AP3DIAG<=1506) ~ "Trauma/Neurosurgery",
+            (AP3DIAG>=1602) & (AP3DIAG<=1605) ~ "Trauma/Neurosurgery",
+            (AP3DIAG>=1701) & (AP3DIAG<=1705) ~ "Post-Operative",
+            (AP3DIAG>=1801) & (AP3DIAG<=1803) ~ "Post-Operative",
+            (AP3DIAG>=1902) & (AP3DIAG<=1904) ~ "Post-Operative",
+            (AP3DIAG==2101) ~ "Post-Operative",
+            (AP3DIAG==2201) ~ "Post-Operative",
+            (AP3DIAG>=101) & (AP3DIAG<=111) ~ "Medical",
+            (AP3DIAG>=201) & (AP3DIAG<=213) ~ "Medical",
+            (AP3DIAG>=301) & (AP3DIAG<=313) ~ "Medical",
+            (AP3DIAG>=401) & (AP3DIAG<410) ~ "Medical",
+            (AP3DIAG>=501) & (AP3DIAG<=504) ~ "Sepsis",
+            (AP3DIAG>601) & (AP3DIAG<=605) ~ "Trauma/Neurosurgery",
+            (AP3DIAG>=701) & (AP3DIAG<=704) ~ "Medical",
+            (AP3DIAG>=801) & (AP3DIAG<=802) ~ "Medical",
+            (AP3DIAG>=901) & (AP3DIAG<=903) ~ "Medical",
+            (AP3DIAG>=1101) & (AP3DIAG<=1102) ~ "Medical")) 
+
+# Reorder Apache3
+ahrf_validation <- ahrf_validation |>  mutate(ap3diag_min = factor(ap3diag_min, levels = c("Medical", "Post-Operative", "Sepsis", "Trauma/Neurosurgery", "Cardiac Surgery")))
+
+# Convert Apache3Score to numeric
+ahrf_validation <- ahrf_validation |> mutate(Apache3Score = as.numeric(Apache3Score))
+
+# Convert ANZROD to numeric
+ahrf_validation <- ahrf_validation |> mutate(ANZRODRiskOfDeath = as.numeric(ANZRODRiskOfDeath))
+
+# Reorder Hospital Type
+ahrf_validation <- ahrf_validation |>  mutate(HospitalClassification = factor(HospitalClassification, levels = c("Tertiary", "Metropolitan", "Rural / Regional", "Private")))
+
+# Categorise CFS
+ahrf_validation <- ahrf_validation |> 
+  mutate(FRAILTY = case_when(
+    (FRAILTY == "1"|FRAILTY == "2"|FRAILTY == "3") ~ "Fit/Well",
+    (FRAILTY == "4"|FRAILTY == "5") ~ "Mild",
+    (FRAILTY == "6"|FRAILTY == "7"|FRAILTY == "8")  ~ "Moderate/Severe"))
+
+#==========================================EXPOSURE==========================================#
+
+# Calculate Continuous PaO2:FiO2
+ahrf_validation <- ahrf_validation |> 
+  mutate(pf_cont = as.numeric(PAO2_ANZ)/as.numeric(FIO2_ANZ))
+
+# Calculate AHRF Vs No-AHRF
+ahrf_validation <- ahrf_validation |> 
+  mutate(AHRF = case_when(
+    pf_cont >=300 ~ "No AHRF",
+    pf_cont <300 ~ "AHRF"))
+
+# Reorder AHRF
+ahrf_validation <- ahrf_validation |> 
+  mutate(AHRF = factor(AHRF, levels = c("No AHRF", "AHRF")))
+
+#Calculate Categorical PaO2:FiO2
+ahrf_validation <- ahrf_validation |> 
+  mutate(pf_cat = case_when(
+    pf_cont < 100 ~ "Severe",
+    pf_cont >=100 & pf_cont < 200 ~ "Moderate",
+    pf_cont >=200 & pf_cont <300 ~ "Mild",
+    pf_cont >=300 ~ "None"))
+
+# Reorder pf_cat
+ahrf_validation <- ahrf_validation |> 
+  mutate(pf_cat = factor(pf_cat, levels = c("None", "Mild", "Moderate", "Severe")))
+
+# Rename AHRF Causes (APache3 Diagnostic Code)
+ahrf_validation <- ahrf_validation |> 
+  mutate(ahrf_adm = case_when(
+    (AP3DIAG>=1202) & (AP3DIAG<=1213) ~ "Cardiac Surgery",
+    (AP3DIAG>=1301) & (AP3DIAG<=1304) ~ "Other Post-Operative",
+    (AP3DIAG>=1401) & (AP3DIAG<=1413) ~ "Gastrointestinal Surgery",
+    (AP3DIAG>=1501) & (AP3DIAG<=1506) ~ "Other Post-Operative",
+    (AP3DIAG>=1602) & (AP3DIAG<=1605) ~ "Other Post-Operative",
+    (AP3DIAG>=1701) & (AP3DIAG<=1705) ~ "Other Post-Operative",
+    (AP3DIAG>=1801) & (AP3DIAG<=1803) ~ "Other Post-Operative",
+    (AP3DIAG>=1902) & (AP3DIAG<=1904) ~ "Other Post-Operative",
+    (AP3DIAG==2101) ~ "Other Non-Operative",
+    (AP3DIAG==2201) ~ "Other Non-Operative",
+    (AP3DIAG>=101) & (AP3DIAG<=111) ~ "Cardiovascular Disease",
+    (AP3DIAG>=201) & (AP3DIAG<=213) ~ "Respiratory Disease",
+    (AP3DIAG>=301) & (AP3DIAG<=313) ~ "Other Non-Operative",
+    (AP3DIAG>=401) & (AP3DIAG<410) ~ "Other Non-Operative",
+    (AP3DIAG>=501) & (AP3DIAG<=504) ~ "Sepsis",
+    (AP3DIAG>601) & (AP3DIAG<=605) ~ "Other Non-Operative",
+    (AP3DIAG>=701) & (AP3DIAG<=704) ~ "Other Non-Operative",
+    (AP3DIAG>=801) & (AP3DIAG<=802) ~ "Other Non-Operative",
+    (AP3DIAG>=901) & (AP3DIAG<=903) ~ "Other Non-Operative",
+    (AP3DIAG>=1101) & (AP3DIAG<=1102) ~ "Other Non-Operative")) 
+
+# Refactor ahrf_cause
+ahrf_validation <- ahrf_validation |> 
+  mutate(ahrf_adm = factor(ahrf_adm, levels = c("Cardiac Surgery", "Respiratory Disease", "Cardiovascular Disease", "Sepsis", "Gastrointestinal Surgery", "Other Non-Operative", "Other Post-Operative")))
+
+#==========================================OUTCOMES==========================================#
+
+# Change LOS to days (from hours)
+ahrf_validation <- ahrf_validation |>  mutate(icu_los = as.numeric(ICU_HRS)/24) |> select(-ICU_HRS)
+ahrf_validation <- ahrf_validation |>  mutate(hosp_los = as.numeric(HOSP_HRS)/24) |> select(-HOSP_HRS)
+
+library(tidyverse)
+# Mortality Date Data- Create Survival Time Interval
+ahrf_validation <- ahrf_validation |> 
+  # Convert character to date format
+  mutate(ICU_AD_DTM = ymd_hms(ICU_AD_DTM),
+         NDI_NHI_DeathDate = ymd_hms(NDI_NHI_DeathDate)) |> 
+  # Create interval between ICU admission and death
+  mutate(surv_interval = difftime(NDI_NHI_DeathDate, ICU_AD_DTM, units = "days"))
+
+# Create Binary variables of survival at different time-points
+# 28 Day Mortality
+ahrf_validation<- ahrf_validation |> 
+  mutate(mort_28d = if_else(surv_interval<28, 1, 0),
+         mort_90d = if_else(surv_interval<90, 1, 0),
+         mort_180d = if_else(surv_interval<180, 1, 0),
+         mort_365d = if_else(surv_interval<365, 1, 0))
+
+# Convert NAs into 0
+ahrf_validation<- ahrf_validation |> 
+  mutate(mort_28d = replace_na(mort_28d, 0),
+         mort_90d = replace_na(mort_90d, 0),
+         mort_180d = replace_na(mort_180d, 0),
+         mort_365d = replace_na(mort_365d, 0))
+
+
+#==========================================REMOVE MISSING DATA==========================================#
+# Remove variables that have missing data
+ahrf_validation <- ahrf_validation |> 
+  filter(!(DIED_HOSP == "NA"))
+
+ahrf_validation <- ahrf_validation[complete.cases(ahrf_validation$pf_cont),]
+
+# Filtering patients with PF > 700
+ahrf_validation <- ahrf_validation |> 
+  filter(!(pf_cont > 700))
+
+#==========================================TABLE 1=====================================================#
+# Count row numbers to get patient numbers in table 1
+ahrf_validation <- ahrf_validation |>  mutate(PatientID = row_number()) |>  
+  group_by(PatientID) |> 
+  mutate(count_pt = row_number() == 1L) |> 
+  ungroup()
+
+# Generate Table 1- AHRF Categories
+t1 <- ahrf_validation |>  
+  select(patientn = count_pt, AGE, age_cat, SEX, Apache2Score, Apache3Score, ANZRODRiskOfDeath, sofa_score_derived, ap3diag_min, COVID_pneumonitis_derived, icu_admit_source, HospitalClassification, CHR_RESP, CHR_CVS, CHR_LIV, CHR_REN, FRAILTY, pf_cat) |>  
+    tbl_summary(by = pf_cat, missing = "no",
+            label = list(
+              patientn = "Number of Patients",
+              AGE = "Median Age in Years (IQR)",
+              age_cat = "Age Category, Years",
+              SEX = "Gender",
+              Apache2Score = "Median APACHE II Score (IQR)",
+              Apache3Score = "Median APACHE III Score (IQR)",
+              ANZRODRiskOfDeath = "Median ANZROD (IQR)",
+              sofa_score_derived = "Median SOFA (IQR)",
+              ap3diag_min = "Admission Diagnosis",
+              COVID_pneumonitis_derived = "COVID Penumonitis (Proven)",
+              icu_admit_source = "Admission Source",
+              HospitalClassification = "Hospital Type",
+              CHR_RESP = "Chronic Respiratory Disease",
+              CHR_CVS = "Chronic CVS Disease",
+              CHR_LIV = "Chronic Hepatic Disease",
+              CHR_REN = "Chronic Renal Disease",
+              FRAILTY = "Frailty"),
+            value = list(
+              COVID_pneumonitis_derived ~ 1,
+              CHR_RESP ~ 1,
+              CHR_CVS ~ 1,
+              CHR_LIV ~ 1,
+              CHR_REN ~ 1),
+            statistic = list(
+              patientn ~ "{n}",
+              AGE ~ "{median} ({p25}-{p75})",
+              SEX ~ "{n} ({p}%)",
+              Apache2Score ~ "{median} ({p25}-{p75})",
+              Apache3Score ~ "{median} ({p25}-{p75})",
+              ANZRODRiskOfDeath ~ "{median} ({p25}-{p75})",
+              sofa_score_derived ~ "{median} ({p25}-{p75})",
+              ap3diag_min ~ "{n} ({p}%)",
+              icu_admit_source ~ "{n} ({p}%)")) |> 
+  modify_header(stat_1 = "**None (PF >300)**", stat_2 = "**Mild (PF 200-300)**", stat_3 = "**Moderate (PF 100-200)**", stat_4 = "**Severe (PF < 100)**") |> 
+  modify_spanning_header(all_stat_cols() ~ "**Acute Hypoxaemic Respiratory Failure Category**") |> 
+  add_overall(col_label = "**Overall**", last = FALSE) |> 
+  bold_labels() |> 
+  italicize_labels()
+```
+
+## Results
+
+Of 785,049 patients admitted to 211 ICUs during the study period, 402,431 (51.2%) patients had acute hypoaxemic respiratory failure. Of this cohort, 214,902 (27.4%) had mild AHRF, 153,651 (19.6%) had moderate AHRF and 33,878 (4.3%) had severe AHRF.
+
+### Patient Demographics
+
+Below are the demographic tables. This table has the 4 AHRF categories (none, mild, moderate, severe) to look at the breakdown of patients within each AHRF category.
+
+```{r, warning=FALSE, message=FALSE}
+t1
+```
+
+### ICU Supports
+
+```{r, message=FALSE, warning=FALSE}
+# Generate Table with ICU interventions (IPPV, NIV, ECMO, RRT)
+icu_support <- ahrf_validation |> 
+  #convert NA into 0
+  mutate(INV_DAYONE = replace_na(INV_DAYONE, 0),
+         INV_IND = replace_na(INV_IND, 0),
+         NIV_IND = replace_na(NIV_IND, 0),
+         ECMO_IND = replace_na(ECMO_IND, 0),
+         INOTROP_IND = replace_na(INOTROP_IND, 0),
+         TRACHE_IND = replace_na(TRACHE_IND, 0),
+         ARF = replace_na(ARF, 0),
+         RENAL_IND = replace_na(RENAL_IND, 0),
+         INV_HOURS = na_if(INV_HOURS, 0),
+         NIV_HOURS = na_if(NIV_HOURS, 0)) |> 
+  select(INV_DAYONE , INV_IND, INV_HOURS, NIV_IND, NIV_HOURS, ECMO_IND, INOTROP_IND, TRACHE_IND, ARF, RENAL_IND, pf_cat) |> 
+  tbl_summary(by = pf_cat, missing = "no",
+              label = list(
+                INV_DAYONE = "IPPV on Day 1",
+                INV_IND = "IPPV",
+                INV_HOURS = "Hours of IPPV (Pts that received IPPV)",
+                NIV_IND = "NIV",
+                NIV_HOURS = "Hours of NIV (Pts that received NIV)",
+                ECMO_IND = "ECMO",
+                INOTROP_IND = "Inotropes/Vasopressors",
+                TRACHE_IND = "Tracheostomy",
+                ARF = "Acute Kidney Injury",
+                RENAL_IND = "Renal Replacement Therapy"),
+              value = list(
+                INV_DAYONE ~ 1,
+                INV_IND ~ 1,
+                NIV_IND ~ 1,
+                ECMO_IND ~ 1,
+                INOTROP_IND ~ 1,
+                TRACHE_IND ~ 1,
+                ARF ~ 1,
+                RENAL_IND ~ 1)) |> 
+    modify_header(stat_1 = "**None (PF >300)**", stat_2 = "**Mild (PF 200-300)**", stat_3 = "**Moderate (PF 100-200)**", stat_4 = "**Severe (PF < 100)**") |> 
+  modify_spanning_header(all_stat_cols() ~ "**Acute Respiratory Failure Category**") |>
+  bold_labels() |> 
+  add_overall(col_label = "**Overall**", last = FALSE)
+
+icu_support
+```
+
+
+### ICU & Hospital Outcomes
+
+```{r, message=FALSE, warning=FALSE}
+# Generate Table of all outcomes- AHRF Categories
+tbl_icu_hosp_outcomes <- ahrf_validation |> 
+  mutate(icu_los_med = icu_los,
+         icu_los_mean = icu_los,
+         hosp_los_med = hosp_los,
+         hosp_los_mean = hosp_los) |> 
+  select(DIED_HOSP, DIED_ICU, icu_los_mean, icu_los_med, hosp_los_mean, hosp_los_med, pf_cat) |>  
+    tbl_summary(by = pf_cat, missing = "no",
+            label = list(
+              DIED_HOSP = "Hospital Mortality",
+              DIED_ICU = "ICU Mortality",
+              icu_los_mean = "Mean ICU Length of Stay in Days (SD)",
+              hosp_los_mean = "Mean Hospital Length of Stay in Days (SD)",
+              icu_los_med = "Median ICU Length of Stay in Days (IQR)",
+              hosp_los_med = "Median Hospital Length of Stay in Days (IQR)"),
+            value = list(
+              DIED_HOSP ~ "1",
+              DIED_ICU ~ "1"),
+            statistic = list(
+              DIED_HOSP ~ "{n} ({p}%)",
+              DIED_ICU ~ "{n} ({p}%)",
+              icu_los_mean ~ "{mean} ({sd})",
+              hosp_los_mean ~ "{mean} ({sd})",
+              icu_los_med ~ "{median} ({p25}-{p75})",
+              hosp_los_med ~ "{median} ({p25}-{p75})")) |> 
+  modify_header(stat_1 = "**None (PF >300)**", stat_2 = "**Mild (PF 200-300)**", stat_3 = "**Moderate (PF 100-200)**", stat_4 = "**Severe (PF < 100)**") |> 
+  modify_spanning_header(all_stat_cols() ~ "**Acute Respiratory Failure Category**") |>
+  bold_labels() |> 
+  add_overall(col_label = "**Overall**", last = FALSE)
+
+tbl_icu_hosp_outcomes
+```
+
+### Mortality Outcomes
+
+Below are the incidences of hospital mortality, ICU mortality, 6-month mortality and 12-month mortality.
+
+```{r, cache.lazy=FALSE, message=FALSE, warnings=FALSE}
+surv_tbl <- ahrf_validation |> 
+    select(patientn = count_pt, DIED_ICU, DIED_HOSP, mort_28d, mort_90d, mort_180d, mort_365d, pf_cat) |> 
+  tbl_summary(by = pf_cat, missing = "no",
+            label = list(
+              patientn = "Number of Patients",
+              DIED_ICU = "ICU Mortality",
+              DIED_HOSP = "Hospital Mortality",
+              mort_28d = "28-Day Mortality",
+              mort_90d = "90-Day Mortality",
+              mort_180d = "180-Day Mortality",
+              mort_365d = "1-Year Mortality"),
+            value = list(
+              DIED_ICU ~ 1,
+              DIED_HOSP ~ 1,
+              mort_28d ~ 1,
+              mort_90d ~ 1,
+              mort_180d ~ 1,
+              mort_365d ~ 1),
+            statistic = list(
+              patientn ~ "{n}"))|> 
+  modify_header(stat_1 = "**None (PF >300)**", stat_2 = "**Mild (PF 200-300)**", stat_3 = "**Moderate (PF 100-200)**", stat_4 = "**Severe (PF < 100)**") |> 
+  modify_spanning_header(all_stat_cols() ~ "**Acute Hypoxaemic Respiratory Failure Category**") |> 
+  add_overall(col_label = "**Overall**", last = FALSE) |> 
+  bold_labels() |> 
+  italicize_labels()
+
+surv_tbl
+```
+
+### Primary Outcome: Hospital Mortality
+
+```{r, cache.lazy=FALSE, include=FALSE, warnings=FALSE}
+
+# Plot Continuous PF and Unadjusted Mortality
+mort_pf_curve <- ggplot(data=ahrf_validation, aes(x=pf_cont, y=DIED_HOSP))+
+  geom_smooth(data = ahrf_validation, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  labs(x=expression(paste(PaO[2]:FiO[2], " Ratio")), y="Hospital Mortality (%)", title="Unadjusted Association of Day 1 PF Ratio and Hospital Mortality")+
+  coord_cartesian(ylim = c(0,0.45))+
+  scale_y_continuous(labels = scales::percent)+
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank())
+
+# Plot Continuous PF Against Unadjusted Mortality by AHRF Categories
+mort_pf_curve_cat <- ggplot(data=ahrf_validation, aes(x=pf_cont, y=DIED_HOSP, color=pf_cat))+
+  geom_smooth(data = ahrf_validation, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  labs(x=expression(paste(PaO[2]:FiO[2], " Ratio")), y="Hospital Mortality (%)", title="Unadjusted Association of Day 1 PF Ratio and Hospital Mortality",
+       subtitle="By AHRF Categories", color = "AHRF Category")+
+  coord_cartesian(ylim = c(0,0.45))+
+  scale_y_continuous(labels = scales::percent)+
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank())+
+  guides(color=guide_legend(override.aes=list(fill=NA)))
+
+# Plot Forest Plot for AHRF Categories
+forest_data <- ahrf_validation |> 
+  group_by(pf_cat) |> 
+  summarize(mean = mean(DIED_HOSP, na.rm=T),
+            sd = sd(DIED_HOSP, na.rm=T),
+            n = n()) |> 
+  mutate(margin = qt(0.975,df=n-1)*sd/sqrt(n),
+         confint.low = mean - margin,
+         confint.high = mean + margin)
+
+mort_pfcat_forest <- ggplot(data=forest_data)+
+  geom_pointrange(aes(x=pf_cat, y=mean, ymin=confint.low, ymax=confint.high, color=pf_cat))+
+  coord_flip()+
+  labs(y="Mean Hospital Mortality (95% CI)", x="AHRF Categories", title="Unadjusted Association of Day 1 PF Ratio and Hospital Mortality",
+       subtitle="By AHRF Categories")+
+  theme_bw() +
+  scale_y_continuous(minor_breaks=seq(0, 0.4, by=0.05), breaks=seq(0, 0.4, by=0.1))+
+  ylim(0,0.35)+
+  scale_color_manual(values = c("None"= "#F8766D", "Mild"= "#7CAE00", "Moderate"= "#00BFC4", "Severe"= "#C77CFF"))+
+  guides(color="none")
+
+
+# Access smoothed fitted values
+smooths <- ggplot_build(mort_pf_curve)$data[[1]]
+
+# Find values for varying pf values
+x_50 <- approx(x = smooths$x, y = smooths$y, xout = 50)
+x_100 <- approx(x = smooths$x, y = smooths$y, xout = 100)
+x_150 <- approx(x = smooths$x, y = smooths$y, xout = 150)
+x_200 <- approx(x = smooths$x, y = smooths$y, xout = 200)
+x_300 <- approx(x = smooths$x, y = smooths$y, xout = 300)
+x_400 <- approx(x = smooths$x, y = smooths$y, xout = 400)
+x_700 <- approx(x = smooths$x, y = smooths$y, xout = 700)
+
+# Plot with lines
+mort_pf_values <-
+  ggplot(data=ahrf_validation, aes(x=pf_cont, y=DIED_HOSP))+
+  geom_smooth(data = ahrf_validation, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  geom_segment(x=x_100$x, xend=x_100$x, y=-Inf, yend=x_100$y, colour="#2299FF")+
+  geom_segment(x=-Inf, xend=x_100$x, y=x_100$y, yend=x_100$y, colour="#2299FF")+
+  geom_segment(x=x_200$x, xend=x_200$x, y=-Inf, yend=x_200$y, colour="#2299FF")+
+  geom_segment(x=-Inf, xend=x_200$x, y=x_200$y, yend=x_200$y, colour="#2299FF")+
+  geom_segment(x=x_300$x, xend=x_300$x, y=-Inf, yend=x_300$y, colour="#2299FF")+
+  geom_segment(x=-Inf, xend=x_300$x, y=x_300$y, yend=x_300$y, colour="#2299FF")+
+  geom_segment(x=x_400$x, xend=x_400$x, y=-Inf, yend=x_400$y, colour="#2299FF")+
+  geom_segment(x=x_700$x, xend=x_700$x, y=-Inf, yend=x_700$y, colour="#2299FF")+
+  geom_segment(x=-Inf, xend=x_700$x, y=x_700$y, yend=x_700$y, colour="#2299FF")+
+  labs(x=expression(paste(PaO[2]:FiO[2], " Ratio")), y="Hospital Mortality (%)", title="Unadjusted Association of Day 1 PF Ratio and Hospital Mortality")+
+  coord_cartesian(ylim = c(0,0.45), clip = "off")+
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank(),
+        axis.text.y = element_text(colour = c("black", "white", "black", "black", "black", "#2299FF", "#2299FF", "#2299FF", "#2299FF")))+
+  scale_y_continuous(breaks = c(seq(0, 0.5, by=0.1), x_100$y, x_200$y, x_300$y, x_700$y),
+                     labels = scales::number_format(accuracy = 0.01))+
+  scale_x_continuous(breaks = c(seq(0,700, by=100), 50, 150))
+```
+
+::: panel-tabset
+## Hospital Mortality Curve
+
+```{r, warning=FALSE, message=FALSE}
+mort_pf_curve
+```
+
+## Hospital Mortality Curve with Cutpoints
+
+```{r, warning=FALSE, message=FALSE}
+mort_pf_values
+```
+:::
+
+```{r, include=FALSE}
+# Create Function to determine discrimination characteristics for each outcome
+discrim <- function(df, outcome){
+  cp_optimal <- cutpointr({{df}}, x = pf_cont, class = {{outcome}}, pos_class = 1, metric = youden, na.rm = T, method = maximize_metric, boot_runs=10) |> add_metric(list(ppv, npv, youden))
+
+# Bootstrap for AUC 95% CIs
+auc_boot <- boot_ci(cp_optimal, AUC)
+
+# Create dataframe of results
+pf_cat_test <- cp_optimal |> 
+  select(optimal_cutpoint, sensitivity, specificity, ppv, npv, acc, youden...4, AUC) |> 
+  mutate_if(is.numeric, round, 3) |> 
+  pivot_longer(names_to = "Criteria",
+               cols = everything()) |> 
+  mutate(Criteria = case_when(
+    Criteria == "optimal_cutpoint" ~ "Optimal Cutpoint",
+    Criteria == "sensitivity" ~ "Sensitivity (Sn)",
+    Criteria == "specificity" ~ "Specificity (Sp)",
+    Criteria == "ppv" ~ "Positive Predictive Value (PPV)",
+    Criteria == "npv" ~ "Negative Predictive Value (NPV)",
+    Criteria == "acc" ~ "Accuracy",
+    Criteria == "youden...4" ~ "Youden's Index",
+    Criteria == "AUC" ~ "Area Under Curve (AUC)",
+  ))
+
+return(pf_cat_test)  
+}
+
+# Function for ROC Curve
+roc_curve <- function(df, outcome){
+  cp_optimal <- cutpointr({{df}}, x = pf_cont, class = {{outcome}}, pos_class = 1, metric = youden, na.rm = T, method = maximize_metric, boot_runs=10) |>   add_metric(list(ppv, npv, youden))
+
+# Bootstrap for AUC 95% CIs
+auc_boot <- boot_ci(cp_optimal, AUC)
+
+# Plot
+roc_plot_optimal <- plot_roc(cp_optimal) + 
+  theme_minimal()+
+  geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="grey", linetype="dashed") +
+  annotate("text", x = 0.7, y = 0.05, label = paste0(
+    "AUC = ", round(cp_optimal$AUC, 3), " (95% CI = ", round(auc_boot$values[1],3), " - ", round(auc_boot$values[2],3), ")"))+
+  annotate("text", x=0.25, y=0.70, label= paste0("Optimal Cutpoint\n PF = ", round(cp_optimal$optimal_cutpoint, 0)))
+ 
+return(roc_plot_optimal) 
+}
+
+
+# Outcomes
+# Hospital Mortality
+discr_hosp_mort <- discrim(ahrf_validation, DIED_HOSP) |> rename("Hospital Mortality" = value)
+plot_hosp_mort <-roc_curve(ahrf_validation, DIED_HOSP)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality)
+
+# ICU Mortality
+discr_icu_mort <- discrim(ahrf_validation, DIED_ICU) |> rename("ICU Mortality" = value)
+plot_icu_mort <-roc_curve(ahrf_validation, DIED_ICU)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~ICU~Mortality)
+
+# 28-Day Mortality
+discr_28d_mort <- discrim(ahrf_validation, mort_28d) |> rename("28-Day Mortality" = value)
+plot_28d_mort <-roc_curve(ahrf_validation, mort_28d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~28-Day~Mortality)
+
+# 90-Day Mortality
+discr_90d_mort <- discrim(ahrf_validation, mort_90d) |> rename("90-Day Mortality" = value)
+plot_90d_mort <-roc_curve(ahrf_validation, mort_90d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~90-Day~Mortality)
+
+# 180-Day Mortality
+discr_180d_mort <- discrim(ahrf_validation, mort_180d) |> rename("180-Day Mortality" = value)
+plot_180d_mort <-roc_curve(ahrf_validation, mort_180d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~180-Day~Mortality)
+
+# 1-Year Mortality
+discr_365d_mort <- discrim(ahrf_validation, mort_365d) |> rename("1-Year Mortality" = value)
+plot_365d_mort <-roc_curve(ahrf_validation, mort_365d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~1-Year~Mortality)
+
+
+
+# Table of Test Details
+tbl_disc_overall <- discr_hosp_mort |> 
+  left_join(discr_icu_mort, by = "Criteria") |> 
+  left_join(discr_28d_mort, by = "Criteria") |> 
+  left_join(discr_90d_mort, by = "Criteria") |> 
+  left_join(discr_180d_mort, by = "Criteria") |> 
+  left_join(discr_365d_mort, by = "Criteria") |> 
+  gt() |> 
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels())
+```
+
+### Primary & Secondary Outcomes: Discriminator Characteristics
+
+```{r, warning=FALSE, message=FALSE}
+tbl_disc_overall
+```
+
+### Primary & Secondary Outcomes: Receiver Operator Curves
+
+::: panel-tabset
+## Hospital Mortality
+
+```{r, warning=FALSE, message=FALSE}
+plot_hosp_mort
+```
+
+## ICU Mortality
+
+```{r, warning=FALSE, message=FALSE}
+plot_icu_mort
+```
+
+## 28-Day Mortality
+
+```{r, warning=FALSE, message=FALSE}
+plot_28d_mort
+```
+
+## 90-Day Mortality
+
+```{r, warning=FALSE, message=FALSE}
+plot_90d_mort
+```
+
+## 180-Day Mortality
+
+```{r, warning=FALSE, message=FALSE}
+plot_180d_mort
+```
+
+## 1-Year Mortality
+
+```{r, warning=FALSE, message=FALSE}
+plot_365d_mort
+```
+:::
+
+### Subgroup Analysis
+#### Intubated & Non-Intubated Patients: Discrimination Statistics
+```{r, include=FALSE}
+# Intubated at any time
+ahrf_validation_ippv <- ahrf_validation |> 
+  filter(INV_IND==1) 
+
+# PF Ratio Mortality Curve
+# Plot Continuous PF and Unadjusted Mortality
+mort_pf_curve_ippv <- ggplot(data=ahrf_validation_ippv, aes(x=pf_cont, y=DIED_HOSP))+
+  geom_smooth(data = ahrf_validation_ippv, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  labs(x=expression(paste(PaO[2]:FiO[2], " Ratio")), y="Hospital Mortality (%)", title="Unadjusted Association of Day 1 PF Ratio and Hospital Mortality",
+       subtitle= "In Patients Receiving IPPV During ICU Admission")+
+  coord_cartesian(ylim = c(0,0.5))+
+  scale_y_continuous(labels = scales::percent)+
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank())
+
+# Discriminator Statistics
+# Hospital Mortality
+discr_hosp_mort_ippv <- discrim(ahrf_validation_ippv, DIED_HOSP) |> rename("Hospital Mortality" = value)
+plot_hosp_mort_ippv <-roc_curve(ahrf_validation_ippv, DIED_HOSP)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality)
+
+# ICU Mortality
+discr_icu_mort_ippv <- discrim(ahrf_validation_ippv, DIED_ICU) |> rename("ICU Mortality" = value)
+plot_icu_mort_ippv <-roc_curve(ahrf_validation_ippv, DIED_ICU)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~ICU~Mortality)
+
+# 28-Day Mortality
+discr_28d_mort_ippv <- discrim(ahrf_validation_ippv, mort_28d) |> rename("28-Day Mortality" = value)
+plot_28d_mort_ippv <-roc_curve(ahrf_validation_ippv, mort_28d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~28-Day~Mortality)
+
+# 90-Day Mortality
+discr_90d_mort_ippv <- discrim(ahrf_validation_ippv, mort_90d) |> rename("90-Day Mortality" = value)
+plot_90d_mort_ippv <-roc_curve(ahrf_validation_ippv, mort_90d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~90-Day~Mortality)
+
+# 180-Day Mortality
+discr_180d_mort_ippv <- discrim(ahrf_validation_ippv, mort_180d) |> rename("180-Day Mortality" = value)
+plot_180d_mort_ippv <-roc_curve(ahrf_validation_ippv, mort_180d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~180-Day~Mortality)
+
+# 1-Year Mortality
+discr_365d_mort_ippv <- discrim(ahrf_validation_ippv, mort_365d) |> rename("1-Year Mortality" = value)
+plot_365d_mort_ippv <-roc_curve(ahrf_validation_ippv, mort_365d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~1-Year~Mortality)
+
+# Table of Test Details
+tbl_disc_ippv <- discr_hosp_mort_ippv |> 
+  left_join(discr_icu_mort_ippv, by = "Criteria") |> 
+  left_join(discr_28d_mort_ippv, by = "Criteria") |> 
+  left_join(discr_90d_mort_ippv, by = "Criteria") |> 
+  left_join(discr_180d_mort_ippv, by = "Criteria") |> 
+  left_join(discr_365d_mort_ippv, by = "Criteria") |> 
+  gt() |> 
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |> 
+  tab_header(title = html("Discriminator Characteristics for PaO<sub>2</sub>:FiO<sub>2</sub> Ratio"), subtitle = "In Patients Receiving IPPV")
+
+# Not-Intubated During ICU Admission
+ahrf_validation_non_ippv <- ahrf_validation |> 
+  filter(INV_IND==0) 
+
+# Plot Continuous PF and Unadjusted Mortality
+mort_pf_curve_non_ippv <- ggplot(data=ahrf_validation_non_ippv, aes(x=pf_cont, y=DIED_HOSP))+
+  geom_smooth(data = ahrf_validation_non_ippv, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  labs(x=expression(paste(PaO[2]:FiO[2], " Ratio")), y="Hospital Mortality (%)", title="Unadjusted Association of Day 1 PF Ratio and Hospital Mortality",
+       subtitle= "In Patients Not Receiving IPPV During ICU Admission")+
+  coord_cartesian(ylim = c(0,0.45))+
+  scale_y_continuous(labels = scales::percent)+
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank())
+
+# Discriminator Statistics
+# Hospital Mortality
+discr_hosp_mort_non_ippv <- discrim(ahrf_validation_non_ippv, DIED_HOSP) |> rename("Hospital Mortality" = value)
+plot_hosp_mort_non_ippv <-roc_curve(ahrf_validation_non_ippv, DIED_HOSP)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality)
+
+# ICU Mortality
+discr_icu_mort_non_ippv <- discrim(ahrf_validation_non_ippv, DIED_ICU) |> rename("ICU Mortality" = value)
+plot_icu_mort_non_ippv <-roc_curve(ahrf_validation_non_ippv, DIED_ICU)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~ICU~Mortality)
+
+# 28-Day Mortality
+discr_28d_mort_non_ippv <- discrim(ahrf_validation_non_ippv, mort_28d) |> rename("28-Day Mortality" = value)
+plot_28d_mort_non_ippv <-roc_curve(ahrf_validation_non_ippv, mort_28d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~28-Day~Mortality)
+
+# 90-Day Mortality
+discr_90d_mort_non_ippv <- discrim(ahrf_validation_non_ippv, mort_90d) |> rename("90-Day Mortality" = value)
+plot_90d_mort_non_ippv <-roc_curve(ahrf_validation_non_ippv, mort_90d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~90-Day~Mortality)
+
+# 180-Day Mortality
+discr_180d_mort_non_ippv <- discrim(ahrf_validation_non_ippv, mort_180d) |> rename("180-Day Mortality" = value)
+plot_180d_mort_non_ippv <-roc_curve(ahrf_validation_non_ippv, mort_180d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~180-Day~Mortality)
+
+# 1-Year Mortality
+discr_365d_mort_non_ippv <- discrim(ahrf_validation_non_ippv, mort_365d) |> rename("1-Year Mortality" = value)
+plot_365d_mort_non_ippv <-roc_curve(ahrf_validation_non_ippv, mort_365d)+ labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~1-Year~Mortality)
+
+# Table of Test Details
+tbl_disc_non_ippv <- discr_hosp_mort_non_ippv |> 
+  left_join(discr_icu_mort_non_ippv, by = "Criteria") |> 
+  left_join(discr_28d_mort_non_ippv, by = "Criteria") |> 
+  left_join(discr_90d_mort_non_ippv, by = "Criteria") |> 
+  left_join(discr_180d_mort_non_ippv, by = "Criteria") |> 
+  left_join(discr_365d_mort_non_ippv, by = "Criteria") |> 
+  gt() |> 
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |> 
+  tab_header(title = html("Discriminator Characteristics for PaO<sub>2</sub>:FiO<sub>2</sub> Ratio"), subtitle = "In Patients Not Receiving IPPV")
+```
+
+::: panel-tabset
+## IPPV: PF Ratio-Mortality Curve
+```{r}
+mort_pf_curve_ippv
+```
+## IPPV: Discriminator Characteristics
+```{r}
+tbl_disc_ippv
+```
+## Non-IPPV: PF Ratio-Mortality Curve
+```{r}
+mort_pf_curve_non_ippv
+```
+## Non-IPPV: Discriminator Characteristics
+```{r}
+tbl_disc_non_ippv
+```
+:::
+
+#### A Priori Subgroups
+```{r, include=FALSE}
+#==========================================DAY 1 IPPV==========================================#
+roc_d1_ippv <- ahrf_validation |> 
+  filter(INV_DAYONE == 1) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_d1_noippv <- ahrf_validation |> 
+  filter(INV_DAYONE == 0) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+# Comparison of AUCs (DeLong Test)
+roctest_d1_ippv <- roc.test(roc_d1_ippv, roc_d1_noippv)
+
+# Multicurve ROC
+rocs_d1_ippv <- list()
+rocs_d1_ippv[["Intubated"]] <- roc_d1_ippv
+rocs_d1_ippv[["Not Intubated"]] <- roc_d1_noippv
+
+multiroc_d1_ippv <-
+  ggroc(rocs_d1_ippv, legacy.axes = TRUE) +
+  theme_minimal()+
+  labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality,
+       subtitle = "In Patients Receiving IPPV on Day 1",
+       x="1 - Specificity", y="Sensitivity", color = " ")+
+  geom_abline(intercept = 0, slope = 1, color="grey", linetype="dashed")+
+  annotate("text", x = 0.7, y = 0.35, label = bquote(AUC[Intubated]==.(round(rocs_d1_ippv$`Intubated`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.25, label = bquote(AUC[`Not Intubated`]==.(round(rocs_d1_ippv$`Not Intubated`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.15, label = "Delong Test: p < 0.001")
+
+#==========================================IPPV ANY TIME==========================================#
+roc_ippv <- ahrf_validation |> 
+  filter(INV_IND == 1) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_noippv <- ahrf_validation |> 
+  filter(INV_IND == 0) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+# Comparison of AUCs (DeLong Test)
+roctest_ippv <- roc.test(roc_ippv, roc_noippv)
+
+# Multicurve ROC
+rocs_ippv <- list()
+rocs_ippv[["Intubated"]] <- roc_ippv
+rocs_ippv[["Not Intubated"]] <- roc_noippv
+
+multiroc_ippv <-
+  ggroc(rocs_ippv, legacy.axes = TRUE) +
+  theme_minimal()+
+  labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality,
+       subtitle = "In Patients Receiving IPPV at Any Time",
+       x="1 - Specificity", y="Sensitivity", color = " ")+
+  geom_abline(intercept = 0, slope = 1, color="grey", linetype="dashed")+
+  annotate("text", x = 0.7, y = 0.35, label = bquote(AUC[Intubated]==.(round(rocs_ippv$`Intubated`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.25, label = bquote(AUC[`Not Intubated`]==.(round(rocs_ippv$`Not Intubated`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.15, label = "Delong Test: p < 0.001")
+
+#==========================================NIV ANY TIME==========================================#
+roc_niv <- ahrf_validation |> 
+  filter(NIV_IND == 1) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_noniv <- ahrf_validation |> 
+  filter(NIV_IND == 0) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+# Comparison of AUCs (DeLong Test)
+roctest_niv <- roc.test(roc_niv, roc_noniv)
+
+# Multicurve ROC
+rocs_niv <- list()
+rocs_niv[["NIV"]] <- roc_niv
+rocs_niv[["No NIV"]] <- roc_noniv
+
+multiroc_niv <-
+  ggroc(rocs_niv, legacy.axes = TRUE) +
+  theme_minimal()+
+  labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality,
+       subtitle = "In Patients Receiving NIV at Any Time",
+       x="1 - Specificity", y="Sensitivity", color = " ")+
+  geom_abline(intercept = 0, slope = 1, color="grey", linetype="dashed")+
+  annotate("text", x = 0.7, y = 0.35, label = bquote(AUC[NIV]==.(round(rocs_niv$`NIV`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.25, label = bquote(AUC[`No NIV`]==.(round(rocs_niv$`No NIV`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.15, label = "Delong Test: p < 0.001")
+
+#==========================================ECMO ANY TIME==========================================#
+roc_ecmo <- ahrf_validation |> 
+  filter(ECMO_IND == 1) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_noecmo <- ahrf_validation |> 
+  filter(ECMO_IND == 0) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+# Comparison of AUCs (DeLong Test)
+roctest_ecmo <- roc.test(roc_ecmo, roc_noecmo, method = "delong")
+
+# Multicurve ROC
+rocs_ecmo <- list()
+rocs_ecmo[["ECMO"]] <- roc_ecmo
+rocs_ecmo[["No ECMO"]] <- roc_noecmo
+
+multiroc_ecmo <-
+  ggroc(rocs_ecmo, legacy.axes = TRUE) +
+  theme_minimal()+
+  labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality,
+       subtitle = "In Patients Receiving ECMO at Any Time",
+       x="1 - Specificity", y="Sensitivity", color = " ")+
+  geom_abline(intercept = 0, slope = 1, color="grey", linetype="dashed")+
+  annotate("text", x = 0.7, y = 0.35, label = bquote(AUC[ECMO]==.(round(rocs_ecmo$`ECMO`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.25, label = bquote(AUC[`No ECMO`]==.(round(rocs_ecmo$`No ECMO`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.15, label = "Delong Test: p < 0.001")
+
+#==========================================ADMISSION DIAGNOSIS==========================================#
+roc_cardiac <- ahrf_validation |> 
+  filter(ap3diag_min == "Cardiac Surgery") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_trauma_neurosx <- ahrf_validation |> 
+  filter(ap3diag_min == "Trauma/Neurosurgery") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_postop <- ahrf_validation |> 
+  filter(ap3diag_min == "Post-Operative") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_medical <- ahrf_validation |> 
+  filter(ap3diag_min == "Medical") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_sepsis <- ahrf_validation |> 
+  filter(ap3diag_min == "Sepsis") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+# Comparison of AUCs (DeLong Test)
+roctest_cardiac_neurosx <- roc.test(roc_cardiac, roc_trauma_neurosx)
+roctest_cardiac_post_op <- roc.test(roc_cardiac, roc_postop)
+roctest_cardiac_medical <- roc.test(roc_cardiac, roc_medical)
+roctest_cardiac_sepsis <- roc.test(roc_cardiac, roc_sepsis)
+roctest_neurosx_postop <- roc.test(roc_trauma_neurosx, roc_postop)
+roctest_neurosx_medical <- roc.test(roc_trauma_neurosx, roc_medical)
+roctest_neurosx_sepsis <- roc.test(roc_trauma_neurosx, roc_sepsis)
+roctest_postop_medical <- roc.test(roc_postop, roc_medical)
+roctest_postop_sepsis <- roc.test(roc_postop, roc_sepsis)
+roctest_medical_sepsis <- roc.test(roc_medical, roc_sepsis)
+
+# Multicurve ROC
+rocs_adm <- list()
+rocs_adm[["Cardiac Surgery"]] <- roc_cardiac
+rocs_adm[["Trauma/Neurosurgery"]] <- roc_trauma_neurosx
+rocs_adm[["Post-Operative"]] <- roc_postop
+rocs_adm[["Medical"]] <- roc_medical
+rocs_adm[["Sepsis"]] <- roc_sepsis
+
+
+multiroc_adm <-
+  ggroc(rocs_adm, legacy.axes = TRUE) +
+  theme_minimal()+
+  labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality,
+       subtitle = "By Admission Diagnosis",
+       x="1 - Specificity", y="Sensitivity", color = " ")+
+  geom_abline(intercept = 0, slope = 1, color="grey", linetype="dashed")+
+  annotate("text", x = 0.7, y = 0.40, label = bquote(AUC[`Cardiac Surgery`]==.(round(rocs_adm$`Cardiac Surgery`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.30, label = bquote(AUC[`Trauma/Neurosurgery`]==.(round(rocs_adm$`Trauma/Neurosurgery`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.20, label = bquote(AUC[`Post-Operative`]==.(round(rocs_adm$`Post-Operative`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.10, label = bquote(AUC[`Medical`]==.(round(rocs_adm$`Medical`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.00, label = bquote(AUC[`Sepsis`]==.(round(rocs_adm$`Sepsis`$auc,3))))
+
+#==========================================AGE CATEGORIES==========================================#
+roc_age_44 <- ahrf_validation |> 
+  filter(age_cat == "<44") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_age_45_64 <- ahrf_validation |> 
+  filter(age_cat == "45-64") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_age_65_84 <- ahrf_validation |> 
+  filter(age_cat == "65-84") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_age_84 <- ahrf_validation |> 
+  filter(age_cat == ">84") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+# Comparison of AUCs (DeLong Test)
+roctest_age44_age4564 <- roc.test(roc_age_44, roc_age_45_64)
+roctest_age44_age6584 <- roc.test(roc_age_44, roc_age_65_84)
+roctest_age44_age84 <- roc.test(roc_age_44, roc_age_84)
+roctest_age4564_6584 <- roc.test(roc_age_45_64, roc_age_65_84)
+roctest_age4564_85 <- roc.test(roc_age_45_64, roc_age_84)
+roctest_age6584_85 <- roc.test(roc_age_65_84, roc_age_84)
+
+
+# Multicurve ROC
+rocs_age <- list()
+rocs_age[["Age < 44"]] <- roc_age_44
+rocs_age[["Age 45-64"]] <- roc_age_45_64
+rocs_age[["Age 65-84"]] <- roc_age_65_84
+rocs_age[["Age > 84"]] <- roc_age_84
+
+
+multiroc_age <-
+  ggroc(rocs_age, legacy.axes = TRUE) +
+  theme_minimal()+
+  labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality,
+       subtitle = "By Age Category",
+       x="1 - Specificity", y="Sensitivity", color = " ")+
+  geom_abline(intercept = 0, slope = 1, color="grey", linetype="dashed")+
+  annotate("text", x = 0.7, y = 0.40, label = bquote(AUC[`Age < 44`]==.(round(rocs_age$`Age < 44`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.30, label = bquote(AUC[`Age 45-64`]==.(round(rocs_age$`Age 45-64`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.20, label = bquote(AUC[`Age 65-84`]==.(round(rocs_age$`Age 65-84`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.10, label = bquote(AUC[`Age > 84`]==.(round(rocs_age$`Age > 84`$auc,3))))
+
+#==========================================SEX==========================================#
+roc_sex_m <- ahrf_validation |> 
+  filter(SEX == "Male") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_sex_f <- ahrf_validation |> 
+  filter(SEX == "Female") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+# Comparison of AUCs (DeLong Test)
+roctest_sex <- roc.test(roc_sex_m, roc_sex_f)
+
+# Multicurve ROC
+rocs_sex <- list()
+rocs_sex[["Male"]] <- roc_sex_m
+rocs_sex[["Female"]] <- roc_sex_f
+
+multiroc_sex <-
+  ggroc(rocs_sex, legacy.axes = TRUE) +
+  theme_minimal()+
+  labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality,
+       subtitle = "By Patient Sex",
+       x="1 - Specificity", y="Sensitivity", color = " ")+
+  geom_abline(intercept = 0, slope = 1, color="grey", linetype="dashed")+
+  annotate("text", x = 0.7, y = 0.35, label = bquote(AUC[Male]==.(round(rocs_sex$`Male`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.25, label = bquote(AUC[`Female`]==.(round(rocs_sex$`Female`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.15, label = "Delong Test: p < 0.001")
+
+#==========================================FRAILTY==========================================#
+roc_frailty_fit <- ahrf_validation |> 
+  filter(FRAILTY == "Fit/Well") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_frailty_mild <- ahrf_validation |> 
+  filter(FRAILTY == "Mild") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_frailty_modsev <- ahrf_validation |> 
+  filter(FRAILTY == "Moderate/Severe") |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+# Comparison of AUCs (DeLong Test)
+roctest_frailty_fit_mild <- roc.test(roc_frailty_fit, roc_frailty_mild)
+roctest_frailty_fit_modsev <- roc.test(roc_frailty_fit, roc_frailty_modsev)
+roctest_frailty_mild_modsev  <- roc.test(roc_frailty_mild, roc_frailty_modsev)
+
+# Multicurve ROC
+roc_frailty <- list()
+roc_frailty[["Fit/Well"]] <- roc_frailty_fit
+roc_frailty[["Mild"]] <- roc_frailty_mild
+roc_frailty[["Moderate/Severe"]] <- roc_frailty_modsev
+
+multiroc_frailty <-
+  ggroc(roc_frailty, legacy.axes = TRUE) +
+  theme_minimal()+
+  labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality,
+       subtitle = "By Frailty Category",
+       x="1 - Specificity", y="Sensitivity", color = " ")+
+  geom_abline(intercept = 0, slope = 1, color="grey", linetype="dashed")+
+  annotate("text", x = 0.7, y = 0.40, label = bquote(AUC[`Fit/Well`]==.(round(roc_frailty$`Fit/Well`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.30, label = bquote(AUC[`Mild`]==.(round(roc_frailty$`Mild`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.20, label = bquote(AUC[`Moderate/Severe`]==.(round(roc_frailty$`Moderate/Severe`$auc,3))))
+
+#==========================================TREATMENT LIMITATIONS==========================================#
+roc_trt_lmt_y <- ahrf_validation |> 
+  filter(TREAT_LMT == 1) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_trt_lmt_n <- ahrf_validation |> 
+  filter(TREAT_LMT == 2) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+# Comparison of AUCs (DeLong Test)
+roctest_trt_lmt <- roc.test(roc_trt_lmt_y, roc_trt_lmt_n)
+
+# Multicurve ROC
+rocs_trt_lmt <- list()
+rocs_trt_lmt[["Yes"]] <- roc_trt_lmt_y
+rocs_trt_lmt[["No"]] <- roc_trt_lmt_n
+
+multiroc_trt_lmt <-
+  ggroc(rocs_trt_lmt, legacy.axes = TRUE) +
+  theme_minimal()+
+  labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality,
+       subtitle = "By Treatment Limitation Status",
+       x="1 - Specificity", y="Sensitivity", color = " ")+
+  geom_abline(intercept = 0, slope = 1, color="grey", linetype="dashed")+
+  annotate("text", x = 0.7, y = 0.35, label = bquote(AUC[Yes]==.(round(rocs_trt_lmt$`Yes`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.25, label = bquote(AUC[`No`]==.(round(rocs_trt_lmt$`No`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.15, label = "Delong Test: p < 0.001")
+
+#==========================DAY 1 IPPV + RESPIRATORY ADMISSION + NO TREATMENT LIMITATIONS====================================#
+# Create binary variable of IPPV + respiratory admission + no treatment limitations
+ahrf_validation <- ahrf_validation |> 
+  mutate(ippv_resp_notrtlmt = case_when(
+    INV_DAYONE == 1 & ahrf_adm == "Respiratory Disease" & TREAT_LMT == 1 ~ 1,
+    INV_DAYONE == 1 & ahrf_adm != "Respiratory Disease" & TREAT_LMT == 1 ~ 0))
+
+ahrf_ippv_resp_notrtlmt <- ahrf_validation |> filter(ippv_resp_notrtlmt==1) 
+cutpointr(ahrf_ippv_resp_notrtlmt, x = pf_cont, class = DIED_HOSP, pos_class = 1, metric = youden, na.rm = T, method = maximize_metric, boot_runs=10)
+
+mort_pf_curve_ippv_resp_notrtlmt <- ggplot(data=ahrf_ippv_resp_notrtlmt, aes(x=pf_cont, y=DIED_HOSP))+
+  geom_smooth(data = ahrf_ippv_resp_notrtlmt, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  labs(x=expression(paste(PaO[2]:FiO[2], " Ratio")), y="Hospital Mortality (%)", title="Unadjusted Association of Day 1 PF Ratio and Hospital Mortality",
+       subtitle = "In Patients with IPPV on Day 1, No Treatment Limitations, Admitted with Respiratory Disease")+
+  coord_cartesian(ylim = c(0,0.45))+
+  scale_y_continuous(labels = scales::percent)+
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank())
+
+roc_ippv_resp_notrtlmt <- ahrf_validation |> 
+  filter(ippv_resp_notrtlmt == 1) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+roc_ippv_noresp_notrtlmt <- ahrf_validation |> 
+  filter(ippv_resp_notrtlmt == 0) |> 
+  roc(response = DIED_HOSP, predictor = pf_cont)
+
+# Comparison of AUCs (DeLong Test)
+roctest_ippv_resp_notrtlmt <- roc.test(roc_ippv_resp_notrtlmt, roc_ippv_noresp_notrtlmt)
+
+# Multicurve ROC
+rocs_ippv_resp_notrtlmt <- list()
+rocs_ippv_resp_notrtlmt[["Yes"]] <- roc_ippv_resp_notrtlmt
+rocs_ippv_resp_notrtlmt[["No"]] <- roc_ippv_noresp_notrtlmt
+
+multiroc_ippv_resp_notrtlmt <-
+  ggroc(rocs_ippv_resp_notrtlmt, legacy.axes = TRUE) +
+  theme_minimal()+
+  labs(title=ROC~Curve~of~PaO[2]:FiO[2]~Ratio~'in'~Predicting~Hospital~Mortality,
+       subtitle = "In Patients with IPPV on Day 1, No Treatment Limitations, Stratified by Respiratory Disease",
+       x="1 - Specificity", y="Sensitivity", color = " ")+
+  geom_abline(intercept = 0, slope = 1, color="grey", linetype="dashed")+
+  annotate("text", x = 0.7, y = 0.35, label = bquote(AUC[Yes]==.(round(rocs_ippv_resp_notrtlmt$`Yes`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.25, label = bquote(AUC[`No`]==.(round(rocs_ippv_resp_notrtlmt$`No`$auc,3))))+
+  annotate("text", x = 0.7, y = 0.15, label = "Delong Test: p < 0.001")
+
+#==========================================TABLE OF COMPARISONS OF AUCs==========================================#
+
+comp_d1_ippv <- tibble(
+  Subgroup = "Day 1 IPPV",
+  Comparison = "Yes Vs No",
+  "AUC 1 Vs AUC 2" = paste0(round(roctest_d1_ippv$roc1$auc, 3), " Vs ", round(roctest_d1_ippv$roc2$auc, 3)),
+  "p-value" = roctest_d1_ippv$p.value)
+
+comp_ippv <- tibble(
+  Subgroup = "IPPV Any Time",
+  Comparison = "Yes Vs No",
+  "AUC 1 Vs AUC 2" = paste0(round(roctest_ippv$roc1$auc, 3), " Vs ", round(roctest_ippv$roc2$auc, 3)),
+  "p-value" = roctest_ippv$p.value)
+
+comp_niv <- tibble(
+  Subgroup = "NIV Any Time",
+  Comparison = "Yes Vs No",
+  "AUC 1 Vs AUC 2" = paste0(round(roctest_niv$roc1$auc, 3), " Vs ", round(roctest_niv$roc2$auc, 3)),
+  "p-value" = roctest_niv$p.value)
+
+comp_ecmo <- tibble(
+  Subgroup = "ECMO Any Time",
+  Comparison = "Yes Vs No",
+  "AUC 1 Vs AUC 2" = paste0(round(roctest_ecmo$roc1$auc, 3), " Vs ", round(roctest_ecmo$roc2$auc, 3)),
+  "p-value" = roctest_ecmo$p.value)
+
+comp_adm <- tibble(
+  Subgroup = "Admission Diagnosis",
+  Comparison = c("Cardiac Vs NeuroSurgery", "Cardiac Vs Post-Operative", "Cardiac Vs Medical", "Cardiac Vs Sepsis", "Neurosurgery Vs Post-Operative", "Neurosurgery Vs Medical", "Neurosurgery Vs Sepsis", "Post-Operative Vs Medical", "Post-Operative Vs Sepsis", "Medical Vs Sepsis"),
+  "AUC 1 Vs AUC 2" = c(paste0(round(roctest_cardiac_neurosx$roc1$auc, 3), " Vs ", round(roctest_cardiac_neurosx$roc2$auc, 3)),
+                       paste0(round(roctest_cardiac_post_op$roc1$auc, 3), " Vs ", round(roctest_cardiac_post_op$roc2$auc, 3)),
+                       paste0(round(roctest_cardiac_medical$roc1$auc, 3), " Vs ", round(roctest_cardiac_medical$roc2$auc, 3)),
+                       paste0(round(roctest_cardiac_sepsis$roc1$auc, 3), " Vs ", round(roctest_cardiac_sepsis$roc2$auc, 3)),
+                       paste0(round(roctest_neurosx_postop$roc1$auc, 3), " Vs ", round(roctest_neurosx_postop$roc2$auc, 3)),
+                       paste0(round(roctest_neurosx_medical$roc1$auc, 3), " Vs ", round(roctest_neurosx_medical$roc2$auc, 3)),
+                       paste0(round(roctest_neurosx_sepsis$roc1$auc, 3), " Vs ", round(roctest_neurosx_sepsis$roc2$auc, 3)),
+                       paste0(round(roctest_postop_medical$roc1$auc, 3), " Vs ", round(roctest_postop_medical$roc2$auc, 3)),
+                       paste0(round(roctest_postop_sepsis$roc1$auc, 3), " Vs ", round(roctest_postop_sepsis$roc2$auc, 3)),
+                       paste0(round(roctest_medical_sepsis$roc1$auc, 3), " Vs ", round(roctest_medical_sepsis$roc2$auc, 3))),
+  "p-value" = c(roctest_cardiac_neurosx$p.value, roctest_cardiac_post_op$p.value, roctest_cardiac_medical$p.value, roctest_cardiac_sepsis$p.value, roctest_neurosx_postop$p.value, roctest_neurosx_medical$p.value, roctest_neurosx_sepsis$p.value, roctest_postop_medical$p.value, roctest_postop_sepsis$p.value, roctest_medical_sepsis$p.value))
+
+comp_age <- tibble(
+  Subgroup = "Age Categories",
+  Comparison = c("Age <44 Vs Age 45-64", "Age <44 Vs Age 65-84", "Age <44 Vs Age >84", "Age 45-64 Vs Age 65-84", "Age 45-64 Vs Age >84", "Age 65-84 Vs Age >84"),
+  "AUC 1 Vs AUC 2" = c(paste0(round(roctest_age44_age4564$roc1$auc, 3), " Vs ", round(roctest_age44_age4564$roc2$auc, 3)),
+                       paste0(round(roctest_age44_age6584$roc1$auc, 3), " Vs ", round(roctest_age44_age6584$roc2$auc, 3)),
+                       paste0(round(roctest_age44_age84$roc1$auc, 3), " Vs ", round(roctest_age44_age84$roc2$auc, 3)),
+                       paste0(round(roctest_age4564_6584$roc1$auc, 3), " Vs ", round(roctest_age4564_6584$roc2$auc, 3)),
+                       paste0(round(roctest_age4564_85$roc1$auc, 3), " Vs ", round(roctest_age4564_85$roc2$auc, 3)),
+                       paste0(round(roctest_age6584_85$roc1$auc, 3), " Vs ", round(roctest_age6584_85$roc2$auc, 3))),
+  "p-value" = c(roctest_age44_age4564$p.value, roctest_age44_age6584$p.value, roctest_age44_age84$p.value, roctest_age4564_6584$p.value, roctest_age4564_85$p.value, roctest_age6584_85$p.value))             
+          
+comp_sex <- tibble(
+  Subgroup = "Sex",
+  Comparison = "Male Vs Female",
+  "AUC 1 Vs AUC 2" = paste0(round(roctest_sex$roc1$auc, 3), " Vs ", round(roctest_sex$roc2$auc, 3)),
+  "p-value" = roctest_sex$p.value)      
+
+comp_frailty <- tibble(
+  Subgroup = "Frailty",
+  Comparison = c("Fit/Well Vs Mild Frailty", "Fit/Well Vs Moderate/Severe Frailty", "Mild Frailty Vs Moderate/Severe Frailty"),
+  "AUC 1 Vs AUC 2" = c(paste0(round(roctest_frailty_fit_mild$roc1$auc, 3), " Vs ", round(roctest_frailty_fit_mild$roc2$auc, 3)),
+                       paste0(round(roctest_frailty_fit_modsev$roc1$auc, 3), " Vs ", round(roctest_frailty_fit_modsev$roc2$auc, 3)),
+                       paste0(round(roctest_frailty_mild_modsev$roc1$auc, 3), " Vs ", round(roctest_frailty_mild_modsev$roc2$auc, 3))),
+  "p-value" = c(roctest_frailty_fit_mild$p.value, roctest_frailty_fit_modsev$p.value, roctest_frailty_mild_modsev$p.value))    
+ 
+comp_trtlmt <- tibble(
+  Subgroup = "Treatment Limitations",
+  Comparison = "Yes Vs No",
+  "AUC 1 Vs AUC 2" = paste0(round(roctest_trt_lmt$roc1$auc, 3), " Vs ", round(roctest_trt_lmt$roc2$auc, 3)),
+  "p-value" = round(roctest_trt_lmt$p.value,3))   
+          
+                
+comp_auc <- bind_rows(comp_d1_ippv, comp_ippv, comp_niv, comp_ecmo, comp_adm, comp_age, comp_sex, comp_frailty, comp_trtlmt) |> 
+  mutate_if(is.numeric,round, 3) |> 
+  mutate(`p-value` = as.character(`p-value`)) |> 
+  mutate(`p-value` = if_else(`p-value` == "0", "<0.001", `p-value`)) |> 
+  gt(groupname_col = c("Subgroup")) |> 
+    tab_stubhead(label = "Subgroup") |>  
+  tab_options(
+    row_group.as_column = TRUE,
+    row_group.border.top.width = px(3),
+    row_group.font.weight = "bold",
+    table.border.bottom.width = px(3),
+    table.border.bottom.color = "black",
+    table.border.top.color = "white",
+    heading.border.bottom.color = "black",
+    heading.border.bottom.width = px(3),
+    heading.title.font.weight = "bold") |> 
+  tab_header(title = "Comparison of AUCs of Each Subgroup")|>
+  opt_align_table_header(align = "left")
+```
+
+::: panel-tabset
+## IPPV on Day 1
+
+```{r, warning=FALSE, message=FALSE}
+multiroc_d1_ippv
+```
+
+## IPPV At Any Time
+
+```{r, warning=FALSE, message=FALSE}
+multiroc_ippv
+```
+
+## NIV At Any Time
+
+```{r, warning=FALSE, message=FALSE}
+multiroc_niv
+```
+
+## ECMO At Any Time
+
+```{r, warning=FALSE, message=FALSE}
+multiroc_ecmo
+```
+
+## Admission Diagnosis
+
+```{r, warning=FALSE, message=FALSE}
+multiroc_adm
+```
+
+## Age Categories
+
+```{r, warning=FALSE, message=FALSE}
+multiroc_age
+```
+
+## Sex
+
+```{r, warning=FALSE, message=FALSE}
+multiroc_sex
+```
+
+## Frailty
+
+```{r, warning=FALSE, message=FALSE}
+multiroc_frailty
+```
+
+## Treatment Limitations
+
+```{r, warning=FALSE, message=FALSE}
+multiroc_trt_lmt
+```
+
+## Day 1 IPPV, No Treatment Limitations, Respiratory Admission
+```{r, warning=FALSE, message=FALSE}
+multiroc_ippv_resp_notrtlmt
+```
+
+## Table of Comparisons
+
+```{r, warning=FALSE, message=FALSE}
+comp_auc
+```
+:::
+
+## References
+
+:::{#refs}
+:::
