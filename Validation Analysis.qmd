@@ -22,7 +22,7 @@ theme: yeti
 ---
 
 ## Introduction
- 
+
 This is an explanation of the statistical analysis for the study validating the use of PaO~2~:FiO~2~ ratio in patients admitted to ICU with acute hypoxaemic respiratory failure.
 
 ## Methods
@@ -59,7 +59,7 @@ To determine the optimal cut-off of PaO~2~:FiO~2~ ratio in predicting hospital m
 
 Patients were analysed for validation of the PaO~2~:FiO~2~ ratio in prediction of hospital mortality in the following subgroups: receiving invasive ventilation during the index ICU admission, receiving of other respiratory support (eg non-invasive ventilation, extracorporeal membrane oxygenation) during the ICU admission, sex, age categories, admission diagnoses (medical, cardiac surgery, neurosurgery/trauma, sepsis, post-operative), frailty category (fit/well, mild, moderate, severe frailty) and the presence of treatment limitation status on ICU admission. The same methodology as above was employed. Comparison of each subgroup (ie IPPV vs Non-IPPV) was performed using DeLong's method [@delong1988].
 
-As there were >800,000 patients in the dataset, a 2-sided p-value of 0.001 was used for statistical significance. Given that there is an increased risk of Type-1 error with multiple testing, the results of the secondary objectives should be viewed as exploratory. Hence, no adjustment for multiplicity was used. Only patients with complete data for all covariates were included in the analysis. Statistical analyses were performed using R Version 4.3.1 (R Core Team, R Foundation for Statistical Computing, Vienna, Austria) and RStudio Version 2023.12.1 (Posit Software, PBC, Boston, MA). Packages used for analysis included tidytable [@fairbanks], tidyverse [@wickham], data.table [@barrett], gtsummary [@sjoberg2021], gt [@iannone2022], cutpointr [@thiele] and pROC [@robin].
+As there were \>800,000 patients in the dataset, a 2-sided p-value of 0.001 was used for statistical significance. Given that there is an increased risk of Type-1 error with multiple testing, the results of the secondary objectives should be viewed as exploratory. Hence, no adjustment for multiplicity was used. Only patients with complete data for all covariates were included in the analysis. Statistical analyses were performed using R Version 4.3.1 (R Core Team, R Foundation for Statistical Computing, Vienna, Austria) and RStudio Version 2023.12.1 (Posit Software, PBC, Boston, MA). Packages used for analysis included tidytable [@fairbanks], tidyverse [@wickham], data.table [@barrett], gtsummary [@sjoberg2021], gt [@iannone2022], cutpointr [@thiele] and pROC [@robin].
 
 ```{r setup, include=FALSE, warning=FALSE, cache.lazy=FALSE}
 library(tidytable)
@@ -311,7 +311,7 @@ t1 <- ahrf_validation |>
 
 ## Results
 
-Of 785,049 patients admitted to 211 ICUs during the study period, 402,431 (51.2%) patients had acute hypoaxemic respiratory failure. Of this cohort, 214,902 (27.4%) had mild AHRF, 153,651 (19.6%) had moderate AHRF and 33,878 (4.3%) had severe AHRF.
+Of 662,612 patients admitted to 211 ICUs during the study period, 337,851 (51.0%) patients had acute hypoaxemic respiratory failure. Of this cohort, 181,499 (27.4%) had mild AHRF, 128,227 (19.4%) had moderate AHRF and 28,125 (4.2%) had severe AHRF.
 
 ### Patient Demographics
 
@@ -367,7 +367,6 @@ icu_support <- ahrf_validation |>
 icu_support
 ```
 
-
 ### ICU & Hospital Outcomes
 
 ```{r, message=FALSE, warning=FALSE}
@@ -406,7 +405,7 @@ tbl_icu_hosp_outcomes
 
 ### Mortality Outcomes
 
-Below are the incidences of hospital mortality, ICU mortality, 6-month mortality and 12-month mortality.
+Below are the cumulative incidences of hospital mortality, ICU mortality, 6-month mortality and 12-month mortality.
 
 ```{r, cache.lazy=FALSE, message=FALSE, warnings=FALSE}
 surv_tbl <- ahrf_validation |> 
@@ -530,6 +529,11 @@ mort_pf_curve
 
 ```{r, warning=FALSE, message=FALSE}
 mort_pf_values
+```
+
+## Hospital Mortality Curve with Categories
+```{r}
+mort_pf_curve_cat
 ```
 :::
 
@@ -665,7 +669,9 @@ plot_365d_mort
 :::
 
 ### Subgroup Analysis
+
 #### Intubated & Non-Intubated Patients: Discrimination Statistics
+
 ```{r, include=FALSE}
 # Intubated at any time
 ahrf_validation_ippv <- ahrf_validation |> 
@@ -771,24 +777,32 @@ tbl_disc_non_ippv <- discr_hosp_mort_non_ippv |>
 
 ::: panel-tabset
 ## IPPV: PF Ratio-Mortality Curve
+
 ```{r}
 mort_pf_curve_ippv
 ```
+
 ## IPPV: Discriminator Characteristics
+
 ```{r}
 tbl_disc_ippv
 ```
+
 ## Non-IPPV: PF Ratio-Mortality Curve
+
 ```{r}
 mort_pf_curve_non_ippv
 ```
+
 ## Non-IPPV: Discriminator Characteristics
+
 ```{r}
 tbl_disc_non_ippv
 ```
 :::
 
 #### A Priori Subgroups
+
 ```{r, include=FALSE}
 #==========================================DAY 1 IPPV==========================================#
 roc_d1_ippv <- ahrf_validation |> 
@@ -1289,6 +1303,7 @@ multiroc_trt_lmt
 ```
 
 ## Day 1 IPPV, No Treatment Limitations, Respiratory Admission
+
 ```{r, warning=FALSE, message=FALSE}
 multiroc_ippv_resp_notrtlmt
 ```
@@ -1302,5 +1317,5 @@ comp_auc
 
 ## References
 
-:::{#refs}
+::: {#refs}
 :::
