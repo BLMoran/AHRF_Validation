@@ -59,7 +59,7 @@ To determine the optimal cut-off of PaO~2~:FiO~2~ ratio in predicting hospital m
 
 Patients were analysed for validation of the PaO~2~:FiO~2~ ratio in prediction of hospital mortality in the following subgroups: receiving invasive ventilation during the index ICU admission, receiving of other respiratory support (eg non-invasive ventilation, extracorporeal membrane oxygenation) during the ICU admission, sex, age categories, admission diagnoses (medical, cardiac surgery, neurosurgery/trauma, sepsis, post-operative), frailty category (fit/well, mild, moderate, severe frailty) and the presence of treatment limitation status on ICU admission. The same methodology as above was employed. Comparison of each subgroup (ie IPPV vs Non-IPPV) was performed using DeLong's method [@delong1988].
 
-As there were \>800,000 patients in the dataset, a 2-sided p-value of 0.001 was used for statistical significance. Given that there is an increased risk of Type-1 error with multiple testing, the results of the secondary objectives should be viewed as exploratory. Hence, no adjustment for multiplicity was used. Only patients with complete data for all covariates were included in the analysis. Statistical analyses were performed using R Version 4.3.1 (R Core Team, R Foundation for Statistical Computing, Vienna, Austria) and RStudio Version 2023.12.1 (Posit Software, PBC, Boston, MA). Packages used for analysis included tidytable [@fairbanks], tidyverse [@wickham], data.table [@barrett], gtsummary [@sjoberg2021], gt [@iannone2022], cutpointr [@thiele] and pROC [@robin].
+As there were >800,000 patients in the dataset, a 2-sided p-value of 0.001 was used for statistical significance. Given that there is an increased risk of Type-1 error with multiple testing, the results of the secondary objectives should be viewed as exploratory. Hence, no adjustment for multiplicity was used. Only patients with complete data for all covariates were included in the analysis. Statistical analyses were performed using R Version 4.3.1 (R Core Team, R Foundation for Statistical Computing, Vienna, Austria) and RStudio Version 2023.12.1 (Posit Software, PBC, Boston, MA). Packages used for analysis included tidytable [@fairbanks], tidyverse [@wickham], data.table [@barrett], gtsummary [@sjoberg2021], gt [@iannone2022], cutpointr [@thiele] and pROC [@robin].
 
 ```{r setup, include=FALSE, warning=FALSE, cache.lazy=FALSE}
 library(tidytable)
@@ -773,6 +773,18 @@ tbl_disc_non_ippv <- discr_hosp_mort_non_ippv |>
   gt() |> 
   tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |> 
   tab_header(title = html("Discriminator Characteristics for PaO<sub>2</sub>:FiO<sub>2</sub> Ratio"), subtitle = "In Patients Not Receiving IPPV")
+
+# Plot with both subgroups on them
+mort_pf_curve_subgroup_ippv_noippv <- ggplot(data= ahrf_validation, aes(x=pf_cont, y=DIED_HOSP))+
+  geom_smooth(aes(color= "No IPPV"), data = ahrf_validation_non_ippv, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  geom_smooth(aes(color= "IPPV"),data = ahrf_validation_ippv, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  labs(x=expression(paste(PaO[2]:FiO[2], " Ratio")), y="Hospital Mortality (%)", title="Unadjusted Association of Day 1 PF Ratio and Hospital Mortality", subtitle= "In Patients Receiving and Not Receiving IPPV During ICU Admission", color="IPPV Status")+
+  coord_cartesian(ylim = c(0,0.45))+
+  scale_y_continuous(labels = scales::percent)+
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank())+
+  scale_color_discrete(limits = c("IPPV", "No IPPV"))+
+  guides(color=guide_legend(override.aes=list(fill=NA)))
 ```
 
 ::: panel-tabset
@@ -799,7 +811,155 @@ mort_pf_curve_non_ippv
 ```{r}
 tbl_disc_non_ippv
 ```
+
+## IPPV Status: PF Ratio-Mortality Curve
+
+```{r}
+mort_pf_curve_subgroup_ippv_noippv
+```
 :::
+
+#### Intubated and Non-Intubated (Excluding Patients with Treatment Limitations)
+```{r, include=FALSE}
+# Filter to include only those for full, active treatment
+ahrf_validation_notrtlmt <- ahrf_validation |> 
+  filter(TREAT_LMT == 1)
+
+# Intubated at any time
+ahrf_validation_notrtlmt_ippv <- ahrf_validation_notrtlmt |> 
+  filter(INV_IND==1) 
+
+# PF Ratio Mortality Curve
+# Plot Continuous PF and Unadjusted Mortality
+mort_pf_curve_notrtlmt_ippv <- ggplot(data=ahrf_validation_notrtlmt_ippv, aes(x=pf_cont, y=DIED_HOSP))+
+  geom_smooth(data = ahrf_validation_notrtlmt_ippv, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  labs(x=expression(paste(PaO[2]:FiO[2], " Ratio")), y="Hospital Mortality (%)", title="Unadjusted Association of Day 1 PF Ratio and Hospital Mortality",
+       subtitle= "In Patients with No Treatment Limitations Receiving IPPV During ICU Admission")+
+  coord_cartesian(ylim = c(0,0.5))+
+  scale_y_continuous(labels = scales::percent)+
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank())
+
+# Discriminator Statistics
+# Hospital Mortality
+discr_hosp_mort_notrtlmt_ippv <- discrim(ahrf_validation_notrtlmt_ippv, DIED_HOSP) |> rename("Hospital Mortality" = value)
+
+# ICU Mortality
+discr_icu_mort_notrtlmt_ippv <- discrim(ahrf_validation_notrtlmt_ippv, DIED_ICU) |> rename("ICU Mortality" = value)
+
+# 28-Day Mortality
+discr_28d_mort_notrtlmt_ippv <- discrim(ahrf_validation_notrtlmt_ippv, mort_28d) |> rename("28-Day Mortality" = value)
+
+# 90-Day Mortality
+discr_90d_mort_notrtlmt_ippv <- discrim(ahrf_validation_notrtlmt_ippv, mort_90d) |> rename("90-Day Mortality" = value)
+
+# 180-Day Mortality
+discr_180d_mort_notrtlmt_ippv <- discrim(ahrf_validation_notrtlmt_ippv, mort_180d) |> rename("180-Day Mortality" = value)
+
+# 1-Year Mortality
+discr_365d_mort_notrtlmt_ippv <- discrim(ahrf_validation_notrtlmt_ippv, mort_365d) |> rename("1-Year Mortality" = value)
+
+# Table of Test Details
+tbl_disc_notrtlmt_ippv <- discr_hosp_mort_notrtlmt_ippv |> 
+  left_join(discr_icu_mort_notrtlmt_ippv, by = "Criteria") |> 
+  left_join(discr_28d_mort_notrtlmt_ippv, by = "Criteria") |> 
+  left_join(discr_90d_mort_notrtlmt_ippv, by = "Criteria") |> 
+  left_join(discr_180d_mort_notrtlmt_ippv, by = "Criteria") |> 
+  left_join(discr_365d_mort_notrtlmt_ippv, by = "Criteria") |> 
+  gt() |> 
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |> 
+  tab_header(title = html("Discriminator Characteristics for PaO<sub>2</sub>:FiO<sub>2</sub> Ratio"), subtitle = "In Patients Receiving IPPV with No Treatment Limitations")
+
+# Not-Intubated During ICU Admission
+ahrf_validation_notrtlmt_non_ippv <- ahrf_validation_notrtlmt |> 
+  filter(INV_IND==0) 
+
+# Plot Continuous PF and Unadjusted Mortality
+mort_pf_curve_notrtlmt_non_ippv <- ggplot(data=ahrf_validation_notrtlmt_non_ippv, aes(x=pf_cont, y=DIED_HOSP))+
+  geom_smooth(data = ahrf_validation_notrtlmt_non_ippv, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  labs(x=expression(paste(PaO[2]:FiO[2], " Ratio")), y="Hospital Mortality (%)", title="Unadjusted Association of Day 1 PF Ratio and Hospital Mortality",
+       subtitle= "In Patients With No Treatment Limitations Not Receiving IPPV During ICU Admission")+
+  coord_cartesian(ylim = c(0,0.45))+
+  scale_y_continuous(labels = scales::percent)+
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank())
+
+# Discriminator Statistics
+# Hospital Mortality
+discr_hosp_mort_notrtlmt_non_ippv <- discrim(ahrf_validation_notrtlmt_non_ippv, DIED_HOSP) |> rename("Hospital Mortality" = value)
+
+# ICU Mortality
+discr_icu_mort_notrtlmt_non_ippv <- discrim(ahrf_validation_notrtlmt_non_ippv, DIED_ICU) |> rename("ICU Mortality" = value)
+
+# 28-Day Mortality
+discr_28d_mort_notrtlmt_non_ippv <- discrim(ahrf_validation_notrtlmt_non_ippv, mort_28d) |> rename("28-Day Mortality" = value)
+
+# 90-Day Mortality
+discr_90d_mort_notrtlmt_non_ippv <- discrim(ahrf_validation_notrtlmt_non_ippv, mort_90d) |> rename("90-Day Mortality" = value)
+
+# 180-Day Mortality
+discr_180d_mort_notrtlmt_non_ippv <- discrim(ahrf_validation_notrtlmt_non_ippv, mort_180d) |> rename("180-Day Mortality" = value)
+
+# 1-Year Mortality
+discr_365d_mort_notrtlmt_non_ippv <- discrim(ahrf_validation_notrtlmt_non_ippv, mort_365d) |> rename("1-Year Mortality" = value)
+
+# Table of Test Details
+tbl_disc_notrtlmt_non_ippv <- discr_hosp_mort_notrtlmt_non_ippv |> 
+  left_join(discr_icu_mort_notrtlmt_non_ippv, by = "Criteria") |> 
+  left_join(discr_28d_mort_notrtlmt_non_ippv, by = "Criteria") |> 
+  left_join(discr_90d_mort_notrtlmt_non_ippv, by = "Criteria") |> 
+  left_join(discr_180d_mort_notrtlmt_non_ippv, by = "Criteria") |> 
+  left_join(discr_365d_mort_notrtlmt_non_ippv, by = "Criteria") |> 
+  gt() |> 
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |> 
+  tab_header(title = html("Discriminator Characteristics for PaO<sub>2</sub>:FiO<sub>2</sub> Ratio"), subtitle = "In Patients Not Receiving IPPV with No Treatment Limitations")
+
+# Plot with both subgroups on them
+mort_pf_curve_subgroup_notrtlmt_ippv_noippv <- ggplot(data= ahrf_validation_notrtlmt, aes(x=pf_cont, y=DIED_HOSP))+
+  geom_smooth(aes(color= "No IPPV"), data = ahrf_validation_notrtlmt_non_ippv, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  geom_smooth(aes(color= "IPPV"),data = ahrf_validation_notrtlmt_ippv, method = "glm", formula = y ~ splines::ns(x, 4), se=TRUE)+
+  labs(x=expression(paste(PaO[2]:FiO[2], " Ratio")), y="Hospital Mortality (%)", title="Unadjusted Association of Day 1 PF Ratio and Hospital Mortality", subtitle= "In Patients With No Treatment Limitations Receiving and Not Receiving IPPV During ICU Admission", color="IPPV Status")+
+  coord_cartesian(ylim = c(0,0.45))+
+  scale_y_continuous(labels = scales::percent)+
+  theme_bw() +
+  theme(panel.grid.major.x = element_blank())+
+  scale_color_discrete(limits = c("IPPV", "No IPPV"))+
+  guides(color=guide_legend(override.aes=list(fill=NA)))
+```
+
+
+::: panel-tabset
+## IPPV: PF Ratio-Mortality Curve
+
+```{r}
+mort_pf_curve_notrtlmt_ippv
+```
+
+## IPPV: Discriminator Characteristics
+
+```{r}
+tbl_disc_notrtlmt_ippv
+```
+
+## Non-IPPV: PF Ratio-Mortality Curve
+
+```{r}
+mort_pf_curve_notrtlmt_non_ippv
+```
+
+## Non-IPPV: Discriminator Characteristics
+
+```{r}
+tbl_disc_notrtlmt_non_ippv
+```
+
+## IPPV Status: PF Ratio-Mortality Curve
+
+```{r}
+mort_pf_curve_subgroup_notrtlmt_ippv_noippv
+```
+:::
+
 
 #### A Priori Subgroups
 
@@ -1082,11 +1242,11 @@ multiroc_frailty <-
 
 #==========================================TREATMENT LIMITATIONS==========================================#
 roc_trt_lmt_y <- ahrf_validation |> 
-  filter(TREAT_LMT == 1) |> 
+  filter(TREAT_LMT == 2) |> 
   roc(response = DIED_HOSP, predictor = pf_cont)
 
 roc_trt_lmt_n <- ahrf_validation |> 
-  filter(TREAT_LMT == 2) |> 
+  filter(TREAT_LMT == 1) |> 
   roc(response = DIED_HOSP, predictor = pf_cont)
 
 # Comparison of AUCs (DeLong Test)
